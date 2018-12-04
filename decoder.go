@@ -15,20 +15,18 @@
  *  * the License.
  *
  */
- 
-/*
-decoder implement hessian 2 protocol, It follows java hessian package standard.
-It assume that you using the java name convention
-baisca difference between java and go
-fully qualify java class name is composed of package + class name
-Go assume upper case of field name is exportable and java did not have that constrain
-but in general java using camo camlecase. So it did conversion of field name from
-the first letter of from upper to lower case
-typMap{string]reflect.Type contain full java package+class name and go relfect.Type
-must provide in order to correctly decode to galang interface
 
+// decoder implement hessian 2 protocol, It follows java hessian package standard.
+// It assume that you using the java name convention
+// baisca difference between java and go
+// fully qualify java class name is composed of package + class name
+// Go assume upper case of field name is exportable and java did not have that constrain
+// but in general java using camo camlecase. So it did conversion of field name from
+// the first letter of from upper to lower case
+// typMap{string]reflect.Type contain full java package+class name and go relfect.Type
+// must provide in order to correctly decode to galang interface
+//
 
-*/
 package hessian
 
 import (
@@ -51,6 +49,7 @@ type ErrDecoder struct {
 	Err     error
 }
 
+// ClassDef class def
 type ClassDef struct {
 	FullClassName string
 	FieldName     []string
@@ -64,7 +63,7 @@ type decoder struct {
 	clsDefList []ClassDef
 }
 
-func NewDecoder(r io.Reader, typ map[string]reflect.Type) *decoder {
+func newDecoder(r io.Reader, typ map[string]reflect.Type) *decoder {
 	if typ == nil {
 		typ = make(map[string]reflect.Type, 17)
 	}
@@ -270,7 +269,6 @@ func (d *decoder) readString(flag int32) (interface{}, error) {
 	last := true
 	var len int32
 	if (tag >= BC_STRING_DIRECT && tag <= STRING_DIRECT_MAX) || (tag >= 0x30 && tag <= 0x33) || (tag == BC_STRING_CHUNK || tag == BC_STRING) {
-		//fmt.Println("inside ", tag)
 		if tag == BC_STRING_CHUNK {
 			last = false
 		} else {
@@ -285,7 +283,6 @@ func (d *decoder) readString(flag int32) (interface{}, error) {
 		for i := 0; ; {
 			if int32(i) == len {
 				if last {
-					//fmt.Println("last ", last, "i", i, "len", len)
 					return string(data), nil
 				}
 
@@ -324,9 +321,8 @@ func (d *decoder) readString(flag int32) (interface{}, error) {
 				i++
 			}
 		}
-		return string(data), nil
+		// return string(data), nil
 	} else {
-		fmt.Println(tag, len, last)
 		return nil, newCodecError("byte3 integer")
 	}
 
@@ -372,7 +368,6 @@ func (d *decoder) readInstance(typ reflect.Type, cls ClassDef) (interface{}, err
 			continue
 		}
 		fldValue := st.Field(index)
-		//fmt.Println("fld", fldName, fldValue, fldValue.Kind())
 		if !fldValue.CanSet() {
 			return nil, newCodecError("CanSet false for " + fldName)
 		}
@@ -421,7 +416,10 @@ func (d *decoder) readInstance(typ reflect.Type, cls ClassDef) (interface{}, err
 			//fmt.Println("struct map", m)
 			d.readMap(fldValue)
 		case kind == reflect.Slice || kind == reflect.Array:
-			m, _ := d.ReadObject()
+			m, err := d.ReadObject()
+			if err != nil {
+				return nil, newCodecError("decode error "+fldName, err)
+			}
 			v := reflect.ValueOf(m)
 			if v.Len() > 0 {
 				sl := reflect.MakeSlice(fldValue.Type(), v.Len(), v.Len())
@@ -451,14 +449,12 @@ func (d *decoder) readMap(value reflect.Value) error {
 		key, err := d.ReadObject()
 		if err != nil {
 			if err == io.EOF {
-				//fmt.Println("endMamp")
 				break
 			} else {
 				return newCodecError("ReadType", err)
 			}
 		}
 		vl, err := d.ReadObject()
-		fmt.Println(key, vl)
 		m.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(vl))
 	}
 	value.Set(m)
@@ -477,7 +473,6 @@ func (d *decoder) readSlice(value reflect.Value) (interface{}, error) {
 		}
 		i = int(ii.(int32))
 	}
-	//fmt.Println("list len ", i)
 	ary := reflect.MakeSlice(value.Type(), i, i)
 	for j := 0; j < i; j++ {
 		it, err := d.ReadObject()
@@ -485,15 +480,13 @@ func (d *decoder) readSlice(value reflect.Value) (interface{}, error) {
 			return nil, newCodecError("ReadList", err)
 		}
 		ary.Index(j).Set(reflect.ValueOf(it))
-		//fmt.Println("j", j, "it", it)
 	}
 	d.readBufByte()
-	//fmt.Println("endList", bt)
 	value.Set(ary)
 	return ary, nil
 }
 
-func CapitalizeName(name string) string {
+func capitalizeName(name string) string {
 	if name[0] >= 'A' && name[0] <= 'Z' {
 		return name
 	}
@@ -502,9 +495,8 @@ func CapitalizeName(name string) string {
 		bs[0] = byte(name[0] - ASCII_GAP)
 		copy(bs[1:], name[1:])
 		return string(bs)
-	} else {
-		return name
 	}
+	return name
 
 }
 
@@ -514,7 +506,7 @@ func findField(name string, typ reflect.Type) (int, error) {
 		if strings.Compare(str, name) == 0 {
 			return i, nil
 		}
-		str1 := CapitalizeName(name)
+		str1 := capitalizeName(name)
 		if strings.Compare(str, str1) == 0 {
 			return i, nil
 		}
@@ -531,14 +523,14 @@ func (d *decoder) readType() (interface{}, error) {
 	tag := buf[0]
 	if (tag >= BC_STRING_DIRECT && tag <= STRING_DIRECT_MAX) || (tag >= 0x30 && tag <= 0x33) || (tag == BC_STRING || tag == BC_STRING_CHUNK) {
 		return d.readString(int32(tag))
-	} else {
-		i, err := d.readInt(TAG_READ)
-		if err != nil {
-			return nil, newCodecError("reading tag", err)
-		}
-		index := int(i.(int32))
-		return d.typList[index], nil
 	}
+	i, err := d.readInt(TAG_READ)
+	if err != nil {
+		return nil, newCodecError("reading tag", err)
+	}
+	index := int(i.(int32))
+	return d.typList[index], nil
+
 }
 
 func (d *decoder) ReadObject() (interface{}, error) {
@@ -546,7 +538,6 @@ func (d *decoder) ReadObject() (interface{}, error) {
 	if err != nil {
 		return nil, newCodecError("reading tag", err)
 	}
-	//fmt.Println("tag ", tag)
 	switch {
 	case tag == BC_END:
 		return nil, io.EOF
@@ -575,18 +566,15 @@ func (d *decoder) ReadObject() (interface{}, error) {
 			key, err := d.ReadObject()
 			if err != nil {
 				if err == io.EOF {
-					//fmt.Println("endMamp")
 					return m, nil
-				} else {
-					return nil, newCodecError("ReadType", err)
 				}
+				return nil, newCodecError("ReadType", err)
+
 			}
 			value, err := d.ReadObject()
-			fmt.Println(key, value)
 			m[key] = value
 		}
 	case tag == BC_OBJECT_DEF:
-		//fmt.Println("BC_OBJECT_DEF")
 		clsDef, err := d.readClassDef()
 		if err != nil {
 			return nil, newCodecError("byte double", err)
@@ -594,11 +582,9 @@ func (d *decoder) ReadObject() (interface{}, error) {
 		clsD, _ := clsDef.(ClassDef)
 		//add to slice
 		d.clsDefList = append(d.clsDefList, clsD)
-		//fmt.Println("clsD", clsD)
 		//read from refList of ClassDef
 		return d.ReadObject()
 	case tag == BC_OBJECT:
-		//fmt.Println("BC_OBJECT ")
 		i, _ := d.readInt(TAG_READ)
 		idx := int(i.(int32))
 		clsD := d.clsDefList[idx]
@@ -637,18 +623,16 @@ func (d *decoder) ReadObject() (interface{}, error) {
 		t, err := d.readInt(int32(tag))
 		if err == nil {
 			return t, err
-		} else {
-			return nil, newCodecError("double mill", err)
 		}
+		return nil, newCodecError("double mill", err)
 	case tag == BC_DOUBLE:
 		return d.readDouble(int32(tag))
 	case tag == BC_DATE:
 		_, err := d.readLong(int32(tag))
 		if err != nil {
 			return nil, newCodecError("date", err)
-		} else {
-			return nil, newCodecError("not yet implementd")
 		}
+		return nil, newCodecError("not yet implementd")
 	case tag == BC_DATE_MINUTE:
 		return nil, newCodecError("not yet implementd")
 	case (tag == BC_STRING_CHUNK || tag == BC_STRING) ||
@@ -656,7 +640,6 @@ func (d *decoder) ReadObject() (interface{}, error) {
 		(tag >= 0x30 && tag <= 0x33):
 		return d.readString(int32(tag))
 	case (tag >= 0x60 && tag <= 0x6f):
-		//fmt.Println("ReadInstance")
 		i := int(tag - 0x60)
 		clsD := d.clsDefList[i]
 		typ, ok := d.typMap[clsD.FullClassName]
@@ -691,7 +674,6 @@ func (d *decoder) ReadObject() (interface{}, error) {
 					return nil, newCodecError("ReadList", err)
 				}
 				ary[j] = it
-				//fmt.Println("j", j, "it", it)
 			}
 		} else {
 			for j := 0; j < i; j++ {
@@ -700,7 +682,6 @@ func (d *decoder) ReadObject() (interface{}, error) {
 					return nil, newCodecError("ReadList", err)
 				}
 				ary[j] = it
-				//fmt.Println("j", j, "it", it)
 			}
 		}
 		return ary, nil
@@ -715,7 +696,6 @@ func (d *decoder) ReadObject() (interface{}, error) {
 			}
 			i = int(ii.(int32))
 		}
-		//fmt.Println("list len ", i)
 		ary := make([]interface{}, i)
 		for j := 0; j < i; j++ {
 			it, err := d.ReadObject()
@@ -723,16 +703,14 @@ func (d *decoder) ReadObject() (interface{}, error) {
 				return nil, newCodecError("ReadList", err)
 			}
 			ary[j] = it
-			//fmt.Println("j", j, "it", it)
 		}
 		//read the endbyte of list
 		d.readBufByte()
-		//fmt.Println("endList", bt)
 		return ary, nil
 	default:
 		return nil, newCodecError("unkonw tag")
 	}
-	return nil, newCodecError("wrong tag")
+	// return nil, newCodecError("wrong tag")
 }
 
 func isBuildInType(typeStr string) bool {
@@ -778,7 +756,6 @@ func (d *decoder) readBinary(flag int32) (interface{}, error) {
 		for i := 0; ; {
 			if int32(i) == len {
 				if last {
-					//fmt.Println("last ", last, "i", i, "len", len)
 					return string(data), nil
 				}
 
@@ -818,9 +795,8 @@ func (d *decoder) readBinary(flag int32) (interface{}, error) {
 				i++
 			}
 		}
-		return data, nil
+		// return data, nil
 	} else {
-		//fmt.Println(tag, len, last)
 		return nil, newCodecError("byte3 integer")
 	}
 
@@ -835,7 +811,8 @@ func (d *decoder) getBinLen(tag byte) (int, error) {
 	if err != nil {
 		return 0, newCodecError("parse binary", err)
 	}
-	return int(bs[0]<<8 + bs[1]), nil
+	//return int(bs[0]<<8 + bs[1]), nil
+	return int(bs[0])<<8 + int(bs[1]), nil
 }
 
 func (d *decoder) readClassDef() (interface{}, error) {
@@ -847,7 +824,6 @@ func (d *decoder) readClassDef() (interface{}, error) {
 	if !ok {
 		return nil, newCodecError("wrong type")
 	}
-	fmt.Println("clsName", clsName)
 	n, err := d.readInt(TAG_READ)
 	if err != nil {
 		return nil, newCodecError("ReadClassDef", err)

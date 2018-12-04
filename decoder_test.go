@@ -15,7 +15,7 @@
  *  * the License.
  *
  */
- 
+
 package hessian
 
 import (
@@ -78,7 +78,7 @@ func TestDecoder_Double(t *testing.T) {
 
 func TestMethod_pkg(t *testing.T) {
 	br := bytes.NewBuffer(nil)
-	e := NewEncoder(br, nil)
+	e := newEncoder(br, nil)
 	typ := reflect.TypeOf(e)
 	for m := 0; m < typ.NumMethod(); m++ {
 		method := typ.Method(m)

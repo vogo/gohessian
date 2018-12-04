@@ -1,5 +1,10 @@
 ## gohessian
 
+Clone from [viant/gohessian](https://github.com/viant/gohessian) with following update:
+- fixed some problems, **BUT ToObject function still has problem for slice!** 
+- remove println for debug 
+- fix code synatx check error
+
 This is a serializer that uses the Hessian protocol, implemented using the Go language.  It was designed at [Viant Inc](http://viantinc.com/ "Viant Inc.").  It can be used for many purposes, including with other open source projects, such as [CacheStore](https://github.com/viant/CacheStore "CacheStore"). Usage is fairly simple.
 
 ## Features:

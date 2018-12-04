@@ -23,6 +23,7 @@ import (
 	"reflect"
 )
 
+//Serializer serializer
 type Serializer interface {
 	ToBytes(interface{}) ([]byte, error)
 	ToObject([]byte) (interface{}, error)
@@ -33,6 +34,7 @@ type goHessian struct {
 	nameMap map[string]string
 }
 
+//NewGoHessian init
 func NewGoHessian(typMap map[string]reflect.Type, nmeMap map[string]string) Serializer {
 	if typMap == nil {
 		typMap = make(map[string]reflect.Type, 17)
@@ -45,17 +47,16 @@ func NewGoHessian(typMap map[string]reflect.Type, nmeMap map[string]string) Seri
 
 func (gh *goHessian) ToBytes(object interface{}) ([]byte, error) {
 	btBufs := bytes.NewBuffer(nil)
-	e := NewEncoder(btBufs, gh.nameMap)
+	e := newEncoder(btBufs, gh.nameMap)
 	_, err := e.WriteObject(object)
 	if err != nil {
 		return nil, err
-	} else {
-		return btBufs.Bytes(), nil
 	}
+	return btBufs.Bytes(), nil
 }
 
 func (gh *goHessian) ToObject(ins []byte) (interface{}, error) {
 	btBufs := bytes.NewReader(ins)
-	d := NewDecoder(btBufs, gh.typMap)
+	d := newDecoder(btBufs, gh.typMap)
 	return d.ReadObject()
 }

@@ -15,7 +15,7 @@
  *  * the License.
  *
  */
- 
+
 package hessian
 
 import (
@@ -32,7 +32,7 @@ type encoder struct {
 	nameMap    map[string]string
 }
 
-func NewEncoder(w io.Writer, np map[string]string) *encoder {
+func newEncoder(w io.Writer, np map[string]string) *encoder {
 	if w == nil {
 		return nil
 	}
@@ -440,10 +440,8 @@ func lowerName(name string) (string, error) {
 		bs[0] = byte(name[0] + ASCII_GAP)
 		copy(bs[1:], name[1:])
 		return string(bs), nil
-	} else {
-		return name, nil
 	}
-
+	return name, nil
 }
 
 func (e *encoder) existClassDef(clsName string) (int, bool) {
