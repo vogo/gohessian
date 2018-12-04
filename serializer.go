@@ -46,8 +46,17 @@ func NewGoHessian(typMap map[string]reflect.Type, nmeMap map[string]string) Seri
 }
 
 func (gh *goHessian) ToBytes(object interface{}) ([]byte, error) {
+	return ToBytes(object, gh.nameMap)
+}
+
+func (gh *goHessian) ToObject(ins []byte) (interface{}, error) {
+	return ToObject(ins, gh.typMap)
+}
+
+//ToBytes serialize object to bytes
+func ToBytes(object interface{}, nameMap map[string]string) ([]byte, error) {
 	btBufs := bytes.NewBuffer(nil)
-	e := newEncoder(btBufs, gh.nameMap)
+	e := NewEncoder(btBufs, nameMap)
 	_, err := e.WriteObject(object)
 	if err != nil {
 		return nil, err
@@ -55,8 +64,21 @@ func (gh *goHessian) ToBytes(object interface{}) ([]byte, error) {
 	return btBufs.Bytes(), nil
 }
 
-func (gh *goHessian) ToObject(ins []byte) (interface{}, error) {
+var globalNameMap = make(map[string]string, 17)
+
+//Encode object to bytes
+func Encode(object interface{}) ([]byte, error) {
+	return ToBytes(object, globalNameMap)
+}
+
+//ToObject deserialize bytes to object
+func ToObject(ins []byte, typMap map[string]reflect.Type) (interface{}, error) {
 	btBufs := bytes.NewReader(ins)
-	d := newDecoder(btBufs, gh.typMap)
+	d := NewDecoder(btBufs, typMap)
 	return d.ReadObject()
+}
+
+//Decode bytes to object
+func Decode(ins []byte, typ reflect.Type) (interface{}, error) {
+	return ToObject(ins, TypeMapOf(typ))
 }

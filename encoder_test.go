@@ -63,11 +63,11 @@ func TestDecoder_Instance(t *testing.T) {
 	p := P{1, 2, 3, "ABC"}
 	bb := BB{"AB", ts4, mp1, p, 4}
 	br := bytes.NewBuffer(nil)
-	e := newEncoder(br, nil)
+	e := NewEncoder(br, nil)
 	e.WriteObject(bb)
 	fmt.Println("e", br)
 	bt := bytes.NewReader(br.Bytes())
-	d := newDecoder(bt, nil)
+	d := NewDecoder(bt, nil)
 	d.RegisterType("BB", reflect.TypeOf(BB{}))
 	d.RegisterType("P", reflect.TypeOf(P{}))
 	it, err := d.ReadObject()
@@ -83,12 +83,12 @@ func TestEncoder_WriteObject(t *testing.T) {
 	mp2[2] = "test2"
 	mp2[3] = "test3"
 	br := bytes.NewBuffer(nil)
-	e7 := newEncoder(br, nil)
+	e7 := NewEncoder(br, nil)
 	e7.WriteObject(mp2)
 	fmt.Println("encode map buf->", string(br.Bytes()), len(br.Bytes()), br.Bytes())
 	bt2 := br.Bytes()
 	br2 := bytes.NewReader(br.Bytes())
-	d7 := newDecoder(br2, nil)
+	d7 := NewDecoder(br2, nil)
 	t7, _ := d7.ReadObject()
 	fmt.Println("decode map", t7, "bt2", len(bt2))
 
@@ -97,12 +97,12 @@ func TestEncoder_WriteObject(t *testing.T) {
 func TestEncoder_WriteList(t *testing.T) {
 	ts3 := [3]string{"t1", "t2", "t3"}
 	br := bytes.NewBuffer(nil)
-	e7 := newEncoder(br, nil)
+	e7 := NewEncoder(br, nil)
 	e7.WriteObject(ts3)
 	fmt.Println("encode array buf->", string(br.Bytes()), len(br.Bytes()), br.Bytes())
 	bt2 := br.Bytes()
 	br2 := bytes.NewReader(br.Bytes())
-	d7 := newDecoder(br2, nil)
+	d7 := NewDecoder(br2, nil)
 	t7, _ := d7.ReadObject()
 	fmt.Println("decode array", t7, "bt2", len(bt2))
 
@@ -111,11 +111,11 @@ func TestEncoder_WriteList(t *testing.T) {
 func TestEncoder_WriteString(t *testing.T) {
 	str := "HessianSerializer"
 	br := bytes.NewBuffer(nil)
-	e7 := newEncoder(br, nil)
+	e7 := NewEncoder(br, nil)
 	e7.WriteObject(str)
 	bt2 := br.Bytes()
 	br2 := bytes.NewReader(br.Bytes())
-	d7 := newDecoder(br2, nil)
+	d7 := NewDecoder(br2, nil)
 	t7, _ := d7.ReadObject()
 	fmt.Println("decode string", t7, "bt2", len(bt2))
 	if strings.Compare(str, t7.(string)) == 0 {

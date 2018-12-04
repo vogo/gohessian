@@ -16,7 +16,7 @@
  *
  */
 
-// decoder implement hessian 2 protocol, It follows java hessian package standard.
+// Decoder implement hessian 2 protocol, It follows java hessian package standard.
 // It assume that you using the java name convention
 // baisca difference between java and go
 // fully qualify java class name is composed of package + class name
@@ -55,7 +55,8 @@ type ClassDef struct {
 	FieldName     []string
 }
 
-type decoder struct {
+//Decoder type
+type Decoder struct {
 	reader     io.Reader
 	typMap     map[string]reflect.Type
 	typList    []string
@@ -63,27 +64,32 @@ type decoder struct {
 	clsDefList []ClassDef
 }
 
-func newDecoder(r io.Reader, typ map[string]reflect.Type) *decoder {
+//NewDecoder new
+func NewDecoder(r io.Reader, typ map[string]reflect.Type) *Decoder {
 	if typ == nil {
 		typ = make(map[string]reflect.Type, 17)
 	}
-	decode := &decoder{r, typ, make([]string, 0, 17), make([]interface{}, 0, 17), make([]ClassDef, 0, 17)}
+	decode := &Decoder{r, typ, make([]string, 0, 17), make([]interface{}, 0, 17), make([]ClassDef, 0, 17)}
 	return decode
 }
 
-func (d *decoder) RegisterType(key string, value reflect.Type) {
+//RegisterType register key/value type
+func (d *Decoder) RegisterType(key string, value reflect.Type) {
 	d.typMap[key] = value
 }
 
-func (d *decoder) RegisterTypeMap(mp map[string]reflect.Type) {
+//RegisterTypeMap register map
+func (d *Decoder) RegisterTypeMap(mp map[string]reflect.Type) {
 	d.typMap = mp
 }
 
-func (d *decoder) RegisterVal(key string, val interface{}) {
+//RegisterVal register from value
+func (d *Decoder) RegisterVal(key string, val interface{}) {
 	d.typMap[key] = reflect.TypeOf(val)
 }
 
-func (d *decoder) Reset() {
+//Reset reset
+func (d *Decoder) Reset() {
 	d.typMap = make(map[string]reflect.Type, 17)
 	d.clsDefList = make([]ClassDef, 0, 17)
 	d.refList = make([]interface{}, 17)
@@ -120,7 +126,7 @@ func newCodecError(dataType string, a ...interface{}) *ErrDecoder {
 	return &ErrDecoder{dataType + message, err}
 }
 
-func (d *decoder) readBufByte() (byte, error) {
+func (d *Decoder) readBufByte() (byte, error) {
 	buf := make([]byte, 1)
 	_, err := io.ReadFull(d.reader, buf)
 	if err != nil {
@@ -129,7 +135,7 @@ func (d *decoder) readBufByte() (byte, error) {
 	return buf[0], nil
 }
 
-func (d *decoder) readBuf(s int) ([]byte, error) {
+func (d *Decoder) readBuf(s int) ([]byte, error) {
 	buf := make([]byte, s)
 	_, err := io.ReadFull(d.reader, buf)
 	if err != nil {
@@ -138,8 +144,8 @@ func (d *decoder) readBuf(s int) ([]byte, error) {
 	return buf, nil
 }
 
-//name is option, if it is nil, use type.Name()
-func (d *decoder) ReadObjectWithType(typ reflect.Type, name string) (interface{}, error) {
+//ReadObjectWithType name is option, if it is nil, use type.Name()
+func (d *Decoder) ReadObjectWithType(typ reflect.Type, name string) (interface{}, error) {
 	//register the type if it did exist
 	if _, ok := d.typMap[name]; ok {
 		log.Println("over write existing type")
@@ -148,7 +154,7 @@ func (d *decoder) ReadObjectWithType(typ reflect.Type, name string) (interface{}
 	return d.ReadObject()
 }
 
-func (d *decoder) readInt(flag int32) (interface{}, error) {
+func (d *Decoder) readInt(flag int32) (interface{}, error) {
 	var tag byte
 	if flag != TAG_READ {
 		tag = byte(flag)
@@ -186,7 +192,7 @@ func (d *decoder) readInt(flag int32) (interface{}, error) {
 	}
 }
 
-func (d *decoder) readLong(flag int32) (interface{}, error) {
+func (d *Decoder) readLong(flag int32) (interface{}, error) {
 	var tag byte
 	if flag != TAG_READ {
 		tag = byte(flag)
@@ -227,7 +233,7 @@ func (d *decoder) readLong(flag int32) (interface{}, error) {
 
 }
 
-func (d *decoder) readDouble(flag int32) (interface{}, error) {
+func (d *Decoder) readDouble(flag int32) (interface{}, error) {
 	var tag byte
 	if flag != TAG_READ {
 		tag = byte(flag)
@@ -259,7 +265,7 @@ func (d *decoder) readDouble(flag int32) (interface{}, error) {
 	return nil, newCodecError("parse double wrong tag " + string(tag))
 }
 
-func (d *decoder) readString(flag int32) (interface{}, error) {
+func (d *Decoder) readString(flag int32) (interface{}, error) {
 	var tag byte
 	if flag != TAG_READ {
 		tag = byte(flag)
@@ -328,7 +334,7 @@ func (d *decoder) readString(flag int32) (interface{}, error) {
 
 }
 
-func (d *decoder) getStrLen(tag byte) (int32, error) {
+func (d *Decoder) getStrLen(tag byte) (int32, error) {
 	switch {
 	case tag >= BC_STRING_DIRECT && tag <= STRING_DIRECT_MAX:
 		return int32(tag - 0x00), nil
@@ -354,7 +360,7 @@ func (d *decoder) getStrLen(tag byte) (int32, error) {
 	}
 }
 
-func (d *decoder) readInstance(typ reflect.Type, cls ClassDef) (interface{}, error) {
+func (d *Decoder) readInstance(typ reflect.Type, cls ClassDef) (interface{}, error) {
 	if typ.Kind() != reflect.Struct {
 		return nil, newCodecError("wrong type expect Struct but get " + typ.String())
 	}
@@ -389,31 +395,29 @@ func (d *decoder) readInstance(typ reflect.Type, cls ClassDef) (interface{}, err
 		case kind == reflect.Int64 || kind == reflect.Uint64:
 			i, err := d.readLong(TAG_READ)
 			if err != nil {
-				return nil, newCodecError("decode error "+fldName, err)
+				return nil, newCodecError("decode int error "+fldName, err)
 			}
 			fldValue.SetInt(i.(int64))
 		case kind == reflect.Bool:
 			b, err := d.ReadObject()
 			if err != nil {
-				return nil, newCodecError("decode error "+fldName, err)
+				return nil, newCodecError("decode bool error "+fldName, err)
 			}
 			fldValue.SetBool(b.(bool))
 		case kind == reflect.Float32 || kind == reflect.Float64:
 			d, err := d.readDouble(TAG_READ)
 			if err != nil {
-				return nil, newCodecError("decode error "+fldName, err)
+				return nil, newCodecError("decode float error "+fldName, err)
 			}
 			fldValue.SetFloat(d.(float64))
 		case kind == reflect.Struct:
 			s, err := d.ReadObject()
 			if err != nil {
-				fmt.Println("struct error", err)
+
+				return nil, newCodecError("decode struct error "+fldName, err)
 			}
 			fldValue.Set(reflect.Indirect(s.(reflect.Value)))
-			fmt.Println("s with struct", s)
 		case kind == reflect.Map:
-			//m, _ := d.ReadObject()
-			//fmt.Println("struct map", m)
 			d.readMap(fldValue)
 		case kind == reflect.Slice || kind == reflect.Array:
 			m, err := d.ReadObject()
@@ -424,7 +428,14 @@ func (d *decoder) readInstance(typ reflect.Type, cls ClassDef) (interface{}, err
 			if v.Len() > 0 {
 				sl := reflect.MakeSlice(fldValue.Type(), v.Len(), v.Len())
 				for i := 0; i < v.Len(); i++ {
-					sl.Index(i).Set(reflect.ValueOf(v.Index(i).Interface()))
+					item := v.Index(i).Interface()
+					itemType := reflect.TypeOf(item)
+					itemValue := reflect.ValueOf(item)
+					if itemType.Kind() == reflect.Struct {
+						sl.Index(i).Set(v.Index(i))
+					} else {
+						sl.Index(i).Set(itemValue)
+					}
 				}
 				fldValue.Set(sl)
 			}
@@ -434,7 +445,7 @@ func (d *decoder) readInstance(typ reflect.Type, cls ClassDef) (interface{}, err
 	return vv, nil
 }
 
-func (d *decoder) readMap(value reflect.Value) error {
+func (d *Decoder) readMap(value reflect.Value) error {
 	tag, _ := d.readBufByte()
 	if tag == BC_MAP {
 		d.readString(TAG_READ)
@@ -461,7 +472,7 @@ func (d *decoder) readMap(value reflect.Value) error {
 	return nil
 }
 
-func (d *decoder) readSlice(value reflect.Value) (interface{}, error) {
+func (d *Decoder) readSlice(value reflect.Value) (interface{}, error) {
 	tag, _ := d.readBufByte()
 	var i int
 	if tag >= BC_LIST_DIRECT_UNTYPED && tag <= 0x7f {
@@ -514,7 +525,7 @@ func findField(name string, typ reflect.Type) (int, error) {
 	return 0, newCodecError("findField")
 }
 
-func (d *decoder) readType() (interface{}, error) {
+func (d *Decoder) readType() (interface{}, error) {
 	buf := make([]byte, 1)
 	_, err := io.ReadFull(d.reader, buf)
 	if err != nil {
@@ -533,7 +544,8 @@ func (d *decoder) readType() (interface{}, error) {
 
 }
 
-func (d *decoder) ReadObject() (interface{}, error) {
+//ReadObject read object
+func (d *Decoder) ReadObject() (interface{}, error) {
 	tag, err := d.readBufByte()
 	if err != nil {
 		return nil, newCodecError("reading tag", err)
@@ -710,7 +722,6 @@ func (d *decoder) ReadObject() (interface{}, error) {
 	default:
 		return nil, newCodecError("unkonw tag")
 	}
-	// return nil, newCodecError("wrong tag")
 }
 
 func isBuildInType(typeStr string) bool {
@@ -732,7 +743,7 @@ func isBuildInType(typeStr string) bool {
 	}
 }
 
-func (d *decoder) readBinary(flag int32) (interface{}, error) {
+func (d *Decoder) readBinary(flag int32) (interface{}, error) {
 	var tag byte
 	if flag != TAG_READ {
 		tag = byte(flag)
@@ -802,7 +813,7 @@ func (d *decoder) readBinary(flag int32) (interface{}, error) {
 
 }
 
-func (d *decoder) getBinLen(tag byte) (int, error) {
+func (d *Decoder) getBinLen(tag byte) (int, error) {
 	if tag >= BC_BINARY_DIRECT && tag <= INT_DIRECT_MAX {
 		return int(tag - BC_BINARY_DIRECT), nil
 	}
@@ -815,7 +826,7 @@ func (d *decoder) getBinLen(tag byte) (int, error) {
 	return int(bs[0])<<8 + int(bs[1]), nil
 }
 
-func (d *decoder) readClassDef() (interface{}, error) {
+func (d *Decoder) readClassDef() (interface{}, error) {
 	f, err := d.readString(TAG_READ)
 	if err != nil {
 		return nil, newCodecError("ReadClassDef", err)

@@ -26,37 +26,43 @@ import (
 	"strings"
 )
 
-type encoder struct {
+//Encoder type
+type Encoder struct {
 	writer     io.Writer
 	clsDefList []ClassDef
 	nameMap    map[string]string
 }
 
-func newEncoder(w io.Writer, np map[string]string) *encoder {
+//NewEncoder new
+func NewEncoder(w io.Writer, np map[string]string) *Encoder {
 	if w == nil {
 		return nil
 	}
 	if np == nil {
 		np = make(map[string]string, 17)
 	}
-	encoder := &encoder{w, make([]ClassDef, 0, 17), np}
+	encoder := &Encoder{w, make([]ClassDef, 0, 17), np}
 	return encoder
 }
 
-func (e *encoder) RegisterNameType(key string, javaClsName string) {
+//RegisterNameType register name type
+func (e *Encoder) RegisterNameType(key string, javaClsName string) {
 	e.nameMap[key] = javaClsName
 }
 
-func (e *encoder) RegisterNameMap(mp map[string]string) {
+//RegisterNameMap register name map
+func (e *Encoder) RegisterNameMap(mp map[string]string) {
 	e.nameMap = mp
 }
 
-func (e *encoder) Reset() {
+//Reset reset
+func (e *Encoder) Reset() {
 	e.nameMap = make(map[string]string, 17)
 	e.clsDefList = make([]ClassDef, 0, 17)
 }
 
-func (e *encoder) WriteObject(data interface{}) (int, error) {
+//WriteObject write object
+func (e *Encoder) WriteObject(data interface{}) (int, error) {
 	if data == nil {
 		io.WriteString(e.writer, "N")
 		return 1, nil
@@ -81,7 +87,6 @@ func (e *encoder) WriteObject(data interface{}) (int, error) {
 	case reflect.Float64:
 		value := data.(float64)
 		return e.writeDouble(value)
-	//case reflect.Uint8:
 	case reflect.Map:
 		return e.writeMap(data)
 	case reflect.Bool:
@@ -90,11 +95,11 @@ func (e *encoder) WriteObject(data interface{}) (int, error) {
 	case reflect.Struct:
 		return e.writeInstance(data)
 	}
-	fmt.Println("error WriteObject", data, "kind", typ.Kind(), typ)
-	return 0, nil
+	return 0, fmt.Errorf("unsupport object:%v, kind:%v, type:%v", data, typ.Kind(), typ)
+
 }
 
-func (e *encoder) writeDouble(value float64) (int, error) {
+func (e *Encoder) writeDouble(value float64) (int, error) {
 	v := float64(int64(value))
 	if v == value {
 		iv := int64(value)
@@ -119,7 +124,7 @@ func (e *encoder) writeDouble(value float64) (int, error) {
 
 }
 
-func (e *encoder) writeMap(data interface{}) (int, error) {
+func (e *Encoder) writeMap(data interface{}) (int, error) {
 	e.writeBT(BC_MAP_UNTYPED)
 	vv := reflect.ValueOf(data)
 	typ := reflect.TypeOf(data).Key()
@@ -159,7 +164,7 @@ func buildKey(key reflect.Value, typ reflect.Type) interface{} {
 	return newCodecError("unsuport key kind " + typ.Kind().String())
 }
 
-func (e *encoder) writeString(value string) (int, error) {
+func (e *Encoder) writeString(value string) (int, error) {
 	dataBys := []byte(value)
 	l := len(dataBys)
 	sub := 0x8000
@@ -208,12 +213,11 @@ func (e *encoder) writeString(value string) (int, error) {
 	return l, nil
 }
 
-func (e *encoder) writeList(data interface{}) (int, error) {
+func (e *Encoder) writeList(data interface{}) (int, error) {
 
 	vv := reflect.ValueOf(data)
 	e.writeBT(BC_LIST_FIXED_UNTYPED)
 	e.writeInt(int32(vv.Len()))
-	fmt.Println("list", vv.Len(), data)
 	for i := 0; i < vv.Len(); i++ {
 		e.WriteObject(vv.Index(i).Interface())
 	}
@@ -221,7 +225,7 @@ func (e *encoder) writeList(data interface{}) (int, error) {
 	return vv.Len(), nil
 }
 
-func (e *encoder) writeInt(value int32) (int, error) {
+func (e *Encoder) writeInt(value int32) (int, error) {
 	var buf []byte
 	if int32(INT_DIRECT_MIN) <= value && value <= int32(INT_DIRECT_MAX) {
 		buf = make([]byte, 1)
@@ -250,7 +254,7 @@ func (e *encoder) writeInt(value int32) (int, error) {
 	return l, nil
 }
 
-func (e *encoder) writeLong(value int64) (int, error) {
+func (e *Encoder) writeLong(value int64) (int, error) {
 	var buf []byte
 	if int64(LONG_DIRECT_MIN) <= value && value <= int64(LONG_DIRECT_MAX) {
 		buf = make([]byte, 1)
@@ -289,7 +293,7 @@ func (e *encoder) writeLong(value int64) (int, error) {
 	return l, nil
 }
 
-func (e *encoder) writeBoolean(value bool) (int, error) {
+func (e *Encoder) writeBoolean(value bool) (int, error) {
 	buf := make([]byte, 1)
 	if value {
 		buf[0] = BC_TRUE
@@ -303,7 +307,7 @@ func (e *encoder) writeBoolean(value bool) (int, error) {
 	return l, nil
 }
 
-func (e *encoder) writeBytes(value []byte) (int, error) {
+func (e *Encoder) writeBytes(value []byte) (int, error) {
 	sub := CHUNK_SIZE
 	l := len(value)
 	begin := 0
@@ -348,12 +352,11 @@ func (e *encoder) writeBytes(value []byte) (int, error) {
 	return len(value), nil
 }
 
-func (e *encoder) writeBT(bs ...byte) (int, error) {
+func (e *Encoder) writeBT(bs ...byte) (int, error) {
 	return e.writer.Write(bs)
 }
 
-func (e *encoder) writeInstance(data interface{}) (int, error) {
-	fmt.Println("struct", data)
+func (e *Encoder) writeInstance(data interface{}) (int, error) {
 	typ := reflect.TypeOf(data)
 	vv := reflect.ValueOf(data)
 
@@ -362,9 +365,7 @@ func (e *encoder) writeInstance(data interface{}) (int, error) {
 		clsName = typ.Name()
 		e.nameMap[clsName] = clsName
 	}
-	//fmt.Println("ok",ok, clsName)
 	l, ok := e.existClassDef(clsName)
-	//fmt.Println("ok 2 ->",ok, l)
 	if !ok {
 		l, _ = e.writeClsDef(typ, clsName)
 	}
@@ -383,10 +384,9 @@ func (e *encoder) writeInstance(data interface{}) (int, error) {
 	return vv.NumField(), nil
 }
 
-func (e *encoder) writeField(field reflect.Value, kind reflect.Kind) error {
+func (e *Encoder) writeField(field reflect.Value, kind reflect.Kind) error {
 	switch kind {
 	case reflect.Struct:
-		//fmt.Println("StructFiled", field.Interface(), "num", field.NumField())
 		e.WriteObject(field.Interface())
 	case reflect.String:
 		v := field.String()
@@ -402,11 +402,9 @@ func (e *encoder) writeField(field reflect.Value, kind reflect.Kind) error {
 		e.writeBoolean(v)
 	case reflect.Map:
 		v := field.Interface()
-		//fmt.Println("Map", field.Type().Kind(), field.Interface())
 		e.writeMap(v)
 	case reflect.Array, reflect.Slice:
 		v := field.Interface()
-		//fmt.Println("Slice", field.Type().Kind(), field.Interface())
 		e.WriteObject(v)
 	case reflect.Int:
 		v := int32(field.Int())
@@ -415,7 +413,7 @@ func (e *encoder) writeField(field reflect.Value, kind reflect.Kind) error {
 	return newCodecError("writeField unspport kind " + kind.String())
 }
 
-func (e *encoder) writeClsDef(typ reflect.Type, clsName string) (int, error) {
+func (e *Encoder) writeClsDef(typ reflect.Type, clsName string) (int, error) {
 	e.writeBT(BC_OBJECT_DEF)
 	e.writeString(clsName)
 	fldList := make([]string, typ.NumField())
@@ -444,7 +442,7 @@ func lowerName(name string) (string, error) {
 	return name, nil
 }
 
-func (e *encoder) existClassDef(clsName string) (int, bool) {
+func (e *Encoder) existClassDef(clsName string) (int, bool) {
 	for i := 0; i < len(e.clsDefList); i++ {
 		if strings.Compare(clsName, e.clsDefList[i].FullClassName) == 0 {
 			return i, true

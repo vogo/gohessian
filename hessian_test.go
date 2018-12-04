@@ -19,9 +19,10 @@
 package hessian
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 type UserName struct {
@@ -30,8 +31,9 @@ type UserName struct {
 }
 type Person struct {
 	UserName
-	Age int32
-	Sex bool
+	Tags []string
+	Age  int32
+	Sex  bool
 }
 
 type JOB struct {
@@ -51,9 +53,24 @@ func TestHessian(t *testing.T) {
 	}
 	person := Person{
 		UserName: name,
+		Tags:     []string{"rich", "handsome"},
 		Age:      18,
 		Sex:      true,
 	}
+
+	encodeDecode(t, person, func(res interface{}) {
+		t.Log(res)
+		t.Log(reflect.TypeOf(res).Name())
+		if reflect.TypeOf(res).Name() == "Value" {
+			value, _ := res.(reflect.Value)
+			decodeObject := value.Interface().(*Person)
+			assert.True(t, reflect.DeepEqual(person, *decodeObject))
+			return
+		}
+		assert.True(t, reflect.DeepEqual(person, res))
+	})
+
+	//TODO
 	worker := Worker{
 		Person: person,
 		Job: []JOB{
@@ -62,45 +79,34 @@ func TestHessian(t *testing.T) {
 		},
 	}
 
-	fmt.Println("worker:", worker)
-	typ := reflect.TypeOf(worker)
-	typMap := make(map[string]reflect.Type)
-	InitTypeMap(typ, typMap)
-
-	gh := NewGoHessian(typMap, nil)
-	fmt.Println("hessian:", gh)
-
-	bt, err := gh.ToBytes(worker)
-	if err != nil {
-		t.Error(err)
-		t.FailNow()
-	}
-	fmt.Println("bytes:", string(bt))
-	fmt.Println("bytes len:", len(bt))
-	res, err := gh.ToObject(bt)
-	if err != nil {
-		t.Error(err)
-		t.FailNow()
-	}
-	fmt.Println(res)
-	fmt.Println(reflect.TypeOf(res))
+	encodeDecode(t, worker, func(res interface{}) {
+		t.Log(res)
+		t.Log(reflect.TypeOf(res).Name())
+		if reflect.TypeOf(res).Name() == "Value" {
+			value, _ := res.(reflect.Value)
+			decodeObject := value.Interface().(*Worker)
+			assert.True(t, reflect.DeepEqual(worker, *decodeObject))
+			return
+		}
+		assert.True(t, reflect.DeepEqual(worker, res))
+	})
 }
 
-//InitTypeMap init
-func InitTypeMap(typ reflect.Type, typMap map[string]reflect.Type) {
-	fmt.Println("--------> ", typ.Name())
-	typMap[typ.Name()] = typ
-	for i := 0; i < typ.NumField(); i++ {
-		f := typ.Field(i)
-		fmt.Println(f.Type.Kind())
-		switch f.Type.Kind() {
-		case reflect.Struct:
-			InitTypeMap(f.Type, typMap)
-		case reflect.Array:
-		case reflect.Slice:
-			if f.Type.Elem().Kind() == reflect.Struct {
-				InitTypeMap(f.Type.Elem(), typMap)
-			}
-		}
+func encodeDecode(t *testing.T, object interface{}, testFunc func(res interface{})) {
+	t.Log("object:", object)
+	bt, err := Encode(object)
+	if err != nil {
+		t.Error(err)
+		t.FailNow()
 	}
+	t.Log("bytes:", string(bt))
+	t.Log("bytes len:", len(bt))
+
+	typ := reflect.TypeOf(object)
+	res, err := Decode(bt, typ)
+	if err != nil {
+		t.Error(err)
+		t.FailNow()
+	}
+	testFunc(res)
 }
