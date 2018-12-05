@@ -61,8 +61,7 @@ func TestHessian(t *testing.T) {
 	encodeDecode(t, person, func(res interface{}) {
 		t.Log(res)
 		t.Log(reflect.TypeOf(res).Name())
-		if reflect.TypeOf(res).Name() == "Value" {
-			value, _ := res.(reflect.Value)
+		if value, ok := res.(reflect.Value); ok {
 			decodeObject := value.Interface().(*Person)
 			assert.True(t, reflect.DeepEqual(person, *decodeObject))
 			return
@@ -82,8 +81,7 @@ func TestHessian(t *testing.T) {
 	encodeDecode(t, worker, func(res interface{}) {
 		t.Log(res)
 		t.Log(reflect.TypeOf(res).Name())
-		if reflect.TypeOf(res).Name() == "Value" {
-			value, _ := res.(reflect.Value)
+		if value, ok := res.(reflect.Value); ok {
 			decodeObject := value.Interface().(*Worker)
 			assert.True(t, reflect.DeepEqual(worker, *decodeObject))
 			return
