@@ -18,6 +18,23 @@ import (
 	"reflect"
 )
 
+// ServerAPI server api
+type ServerApi struct {
+	ApiName string `json:"apiName"`
+	ApiDesc string `json:"apiDesc"`
+	AppRoot string `json:"appRoot"`
+}
+
+//ServerNode server node
+type ServerNode struct {
+	Name     string       `json:"name"`
+	Version  string       `json:"version"`
+	Desc     string       `json:"desc"`
+	Address  string       `json:"address"`
+	Channels []string     `json:"channels"`
+	ApiList  []*ServerApi `json:"apiList"`
+}
+
 //TypeMapFrom value
 func TypeMapFrom(v interface{}) map[string]reflect.Type {
 	return TypeMapOf(reflect.TypeOf(v))

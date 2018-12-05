@@ -36,7 +36,9 @@ import (
 	"io"
 	"log"
 	"math"
+	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 )
 
@@ -106,8 +108,17 @@ func newCodecError(dataType string, a ...interface{}) *ErrDecoder {
 	var err error
 	var format, message string
 	var ok bool
+
+	_, file, line, ok := runtime.Caller(2)
+	if !ok {
+		file = "???"
+		line = 0
+	}
+	file = filepath.Base(file)
+	caller := fmt.Sprintf("(%s:%d)", file, line)
+
 	if len(a) == 0 {
-		return &ErrDecoder{dataType + ": no reason given", nil}
+		return &ErrDecoder{dataType + ": no reason given" + caller, nil}
 	}
 	// if last item is error: save it
 	if err, ok = a[len(a)-1].(error); ok {
@@ -123,7 +134,7 @@ func newCodecError(dataType string, a ...interface{}) *ErrDecoder {
 	if message != "" {
 		message = ": " + message
 	}
-	return &ErrDecoder{dataType + message, err}
+	return &ErrDecoder{dataType + message + caller, err}
 }
 
 func (d *Decoder) readBufByte() (byte, error) {
@@ -273,65 +284,67 @@ func (d *Decoder) readString(flag int32) (interface{}, error) {
 		tag, _ = d.readBufByte()
 	}
 	last := true
-	var len int32
-	if (tag >= BC_STRING_DIRECT && tag <= STRING_DIRECT_MAX) || (tag >= 0x30 && tag <= 0x33) || (tag == BC_STRING_CHUNK || tag == BC_STRING) {
-		if tag == BC_STRING_CHUNK {
-			last = false
-		} else {
-			last = true
-		}
-		l, err := d.getStrLen(tag)
-		if err != nil {
-			return nil, newCodecError("getStrLen", err)
-		}
-		len = l
-		data := make([]byte, len)
-		for i := 0; ; {
-			if int32(i) == len {
-				if last {
-					return string(data), nil
-				}
 
-				buf := make([]byte, 1)
-				_, err := io.ReadFull(d.reader, buf)
+	match := (tag >= BC_STRING_DIRECT && tag <= STRING_DIRECT_MAX) || (tag >= 0x30 && tag <= 0x33) || (tag == BC_STRING_CHUNK || tag == BC_STRING)
+	if !match {
 
-				if err != nil {
-					return nil, newCodecError("byte1 integer", err)
-				}
-				b := buf[0]
-				switch {
-				case b == BC_STRING_CHUNK || b == BC_STRING:
-					if b == BC_STRING_CHUNK {
-						last = false
-					} else {
-						last = true
-					}
-					l, err := d.getStrLen(b)
-					if err != nil {
-						return nil, newCodecError("getStrLen", err)
-					}
-					len += l
-					bs := make([]byte, 0, len)
-					copy(bs, data)
-					data = bs
-				default:
-					return nil, newCodecError("tag error ", err)
-				}
-			} else {
-				buf := make([]byte, 1)
-				_, err := io.ReadFull(d.reader, buf)
-				if err != nil {
-					return nil, newCodecError("byte2 integer", err)
-				}
-				data[i] = buf[0]
-				i++
-			}
-		}
-		// return string(data), nil
-	} else {
 		return nil, newCodecError("byte3 integer")
 	}
+	if tag == BC_STRING_CHUNK {
+		last = false
+	} else {
+		last = true
+	}
+	l, err := d.getStrLen(tag)
+	if err != nil {
+		return nil, newCodecError("getStrLen", err)
+	}
 
+	var length int32
+	length = l
+	data := make([]byte, length)
+	for i := 0; ; {
+		if int32(i) == length {
+			if last {
+				return string(data), nil
+			}
+
+			buf := make([]byte, 1)
+			_, err := io.ReadFull(d.reader, buf)
+
+			if err != nil {
+				return nil, newCodecError("byte1 integer", err)
+			}
+			b := buf[0]
+			switch {
+			case b == BC_STRING_CHUNK || b == BC_STRING:
+				if b == BC_STRING_CHUNK {
+					last = false
+				} else {
+					last = true
+				}
+				l, err := d.getStrLen(b)
+				if err != nil {
+					return nil, newCodecError("getStrLen", err)
+				}
+				length += l
+				bs := make([]byte, 0, length)
+				copy(bs, data)
+				data = bs
+			default:
+				return nil, newCodecError("tag error ", err)
+			}
+		} else {
+			buf := make([]byte, 1)
+			_, err := io.ReadFull(d.reader, buf)
+			if err != nil {
+				return nil, newCodecError("byte2 integer", err)
+			}
+			data[i] = buf[0]
+			i++
+		}
+	}
+	// return string(data), nil
 }
 
 func (d *Decoder) getStrLen(tag byte) (int32, error) {
@@ -426,18 +439,29 @@ func (d *Decoder) readInstance(typ reflect.Type, cls ClassDef) (interface{}, err
 			}
 			v := reflect.ValueOf(m)
 			if v.Len() > 0 {
-				sl := reflect.MakeSlice(fldValue.Type(), v.Len(), v.Len())
-				for i := 0; i < v.Len(); i++ {
-					item := v.Index(i).Interface()
-					itemType := reflect.TypeOf(item)
-					itemValue := reflect.ValueOf(item)
-					if itemType.Kind() == reflect.Struct {
-						sl.Index(i).Set(v.Index(i))
-					} else {
+				if reflect.TypeOf(v.Index(0).Interface()).Kind() == reflect.Struct {
+					sl := reflect.MakeSlice(fldValue.Type(), v.Len(), v.Len())
+					marr, ok := m.([]interface{})
+					if !ok {
+						return nil, newCodecError("decode error " + fldName + ", cant covert array to []interface{}")
+					}
+					for i := 0; i < v.Len(); i++ {
+						itemValue, ok := marr[i].(reflect.Value)
+						if !ok {
+							return nil, newCodecError("decode error " + fldName + ", cant covert array item to reflect.Value")
+						}
 						sl.Index(i).Set(itemValue)
 					}
+					fldValue.Set(sl)
+				} else {
+					sl := reflect.MakeSlice(fldValue.Type(), v.Len(), v.Len())
+					for i := 0; i < v.Len(); i++ {
+						item := v.Index(i).Interface()
+						itemValue := reflect.ValueOf(item)
+						sl.Index(i).Set(itemValue)
+					}
+					fldValue.Set(sl)
 				}
-				fldValue.Set(sl)
 			}
 		}
 
