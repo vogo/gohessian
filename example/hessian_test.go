@@ -16,37 +16,39 @@
  *
  */
 
-package hessian
+package hessian_test
 
 import (
 	"reflect"
 	"testing"
 
+	hessian "github.com/luckincoffee/gohessian"
 	"github.com/stretchr/testify/assert"
 )
 
-type UserName struct {
-	FirstName string
-	LastName  string
-}
-type Person struct {
-	UserName
-	Tags []string
-	Age  int32
-	Sex  bool
-}
-
-type JOB struct {
-	Title   string
-	Company string
-}
-
-type Worker struct {
-	Person
-	Job []JOB
-}
-
 func TestHessian(t *testing.T) {
+	type UserName struct {
+		FirstName string
+		LastName  string
+	}
+	type Person struct {
+		UserName
+		Tags []string
+		Age  int32
+		Sex  bool
+	}
+
+	type JOB struct {
+		Title   string
+		Company string
+	}
+
+	type Worker struct {
+		Person
+		Job        JOB   // pointer not supported
+		HistoryJob []JOB // pointer not supported
+	}
+
 	name := UserName{
 		FirstName: "John",
 		LastName:  "Doe",
@@ -58,41 +60,26 @@ func TestHessian(t *testing.T) {
 		Sex:      true,
 	}
 
-	encodeDecode(t, person, func(res interface{}) {
-		t.Log(res)
-		t.Log(reflect.TypeOf(res).Name())
-		if value, ok := res.(reflect.Value); ok {
-			decodeObject := value.Interface().(*Person)
-			assert.True(t, reflect.DeepEqual(person, *decodeObject))
-			return
-		}
-		assert.True(t, reflect.DeepEqual(person, res))
-	})
-
 	worker := Worker{
 		Person: person,
-		// ---------> decode struct array cause failure
-		//		Job: []JOB{
-		//			JOB{Title: "manager", Company: "google"},
-		//			JOB{Title: "ceo", Company: "microsoft"},
-		//		},
+		Job:    JOB{Title: "cto", Company: "facebook"},
+		HistoryJob: []JOB{
+			JOB{Title: "manager", Company: "google"},
+			JOB{Title: "ceo", Company: "microsoft"},
+		},
 	}
 
 	encodeDecode(t, worker, func(res interface{}) {
-		t.Log(res)
-		t.Log(reflect.TypeOf(res).Name())
-		if value, ok := res.(reflect.Value); ok {
-			decodeObject := value.Interface().(*Worker)
-			assert.True(t, reflect.DeepEqual(worker, *decodeObject))
-			return
-		}
-		assert.True(t, reflect.DeepEqual(worker, res))
+		t.Log("decode object:", res)
+		t.Log("type of decode object:", reflect.TypeOf(res))
+		decodeObject := res.(*Worker)
+		assert.True(t, reflect.DeepEqual(worker, *decodeObject))
 	})
 }
 
 func encodeDecode(t *testing.T, object interface{}, testFunc func(res interface{})) {
 	t.Log("object:", object)
-	bt, err := Encode(object)
+	bt, err := hessian.Encode(object)
 	if err != nil {
 		t.Error(err)
 		t.FailNow()
@@ -101,11 +88,11 @@ func encodeDecode(t *testing.T, object interface{}, testFunc func(res interface{
 	t.Log("bytes len:", len(bt))
 
 	typ := reflect.TypeOf(object)
-	res, err := Decode(bt, typ)
+	t.Log("type map:", hessian.TypeMapOf(typ))
+	res, err := hessian.Decode(bt, typ)
 	if err != nil {
 		t.Error(err)
 		t.FailNow()
 	}
 	testFunc(res)
 }
-

@@ -18,23 +18,6 @@ import (
 	"reflect"
 )
 
-// ServerAPI server api
-type ServerApi struct {
-	ApiName string `json:"apiName"`
-	ApiDesc string `json:"apiDesc"`
-	AppRoot string `json:"appRoot"`
-}
-
-//ServerNode server node
-type ServerNode struct {
-	Name     string       `json:"name"`
-	Version  string       `json:"version"`
-	Desc     string       `json:"desc"`
-	Address  string       `json:"address"`
-	Channels []string     `json:"channels"`
-	ApiList  []*ServerApi `json:"apiList"`
-}
-
 //TypeMapFrom value
 func TypeMapFrom(v interface{}) map[string]reflect.Type {
 	return TypeMapOf(reflect.TypeOf(v))
@@ -43,22 +26,25 @@ func TypeMapFrom(v interface{}) map[string]reflect.Type {
 //TypeMapOf type
 func TypeMapOf(typ reflect.Type) map[string]reflect.Type {
 	typMap := make(map[string]reflect.Type)
-	fetchTypeMap(typ, typMap)
+	FetchTypeMap(typ, typMap)
 	return typMap
 }
 
-func fetchTypeMap(typ reflect.Type, typMap map[string]reflect.Type) {
+//FetchTypeMap map
+func FetchTypeMap(typ reflect.Type, typMap map[string]reflect.Type) {
+	for typ.Kind() == reflect.Ptr {
+		typ = typ.Elem()
+	}
+	if typ.Kind() != reflect.Struct {
+		return
+	}
 	typMap[typ.Name()] = typ
 	for i := 0; i < typ.NumField(); i++ {
 		f := typ.Field(i)
-		switch f.Type.Kind() {
-		case reflect.Struct:
-			fetchTypeMap(f.Type, typMap)
-		case reflect.Array:
-		case reflect.Slice:
-			if f.Type.Elem().Kind() == reflect.Struct {
-				fetchTypeMap(f.Type.Elem(), typMap)
-			}
+		ft := f.Type
+		if f.Type.Kind() == reflect.Array || f.Type.Kind() == reflect.Slice {
+			ft = f.Type.Elem()
 		}
+		FetchTypeMap(ft, typMap)
 	}
 }

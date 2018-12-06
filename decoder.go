@@ -109,7 +109,7 @@ func newCodecError(dataType string, a ...interface{}) *ErrDecoder {
 	var format, message string
 	var ok bool
 
-	_, file, line, ok := runtime.Caller(2)
+	_, file, line, ok := runtime.Caller(1)
 	if !ok {
 		file = "???"
 		line = 0
@@ -287,9 +287,10 @@ func (d *Decoder) readString(flag int32) (interface{}, error) {
 
 	match := (tag >= BC_STRING_DIRECT && tag <= STRING_DIRECT_MAX) || (tag >= 0x30 && tag <= 0x33) || (tag == BC_STRING_CHUNK || tag == BC_STRING)
 	if !match {
-
-		return nil, newCodecError("byte3 integer")
+		// null string will not match
+		return nil, nil
 	}
+
 	if tag == BC_STRING_CHUNK {
 		last = false
 	} else {
@@ -397,7 +398,9 @@ func (d *Decoder) readInstance(typ reflect.Type, cls ClassDef) (interface{}, err
 			if err != nil {
 				return nil, newCodecError("ReadString "+fldName, err)
 			}
-			fldValue.SetString(str.(string))
+			if str != nil {
+				fldValue.SetString(str.(string))
+			}
 		case kind == reflect.Int32 || kind == reflect.Int || kind == reflect.Int16:
 			i, err := d.readInt(TAG_READ)
 			if err != nil {
@@ -438,30 +441,21 @@ func (d *Decoder) readInstance(typ reflect.Type, cls ClassDef) (interface{}, err
 				return nil, newCodecError("decode error "+fldName, err)
 			}
 			v := reflect.ValueOf(m)
-			if v.Len() > 0 {
-				if reflect.TypeOf(v.Index(0).Interface()).Kind() == reflect.Struct {
-					sl := reflect.MakeSlice(fldValue.Type(), v.Len(), v.Len())
-					marr, ok := m.([]interface{})
-					if !ok {
-						return nil, newCodecError("decode error " + fldName + ", cant covert array to []interface{}")
+			if m != nil && v.Len() > 0 {
+				elemPtrType := fldValue.Type().Elem().Kind() == reflect.Ptr
+				sl := reflect.MakeSlice(fldValue.Type(), v.Len(), v.Len())
+				for i := 0; i < v.Len(); i++ {
+					item := v.Index(i).Interface()
+					itemValue := reflect.ValueOf(item)
+					if cv, ok := itemValue.Interface().(reflect.Value); ok {
+						itemValue = cv
 					}
-					for i := 0; i < v.Len(); i++ {
-						itemValue, ok := marr[i].(reflect.Value)
-						if !ok {
-							return nil, newCodecError("decode error " + fldName + ", cant covert array item to reflect.Value")
-						}
-						sl.Index(i).Set(itemValue)
+					if !elemPtrType && itemValue.Kind() == reflect.Ptr {
+						itemValue = itemValue.Elem()
 					}
-					fldValue.Set(sl)
-				} else {
-					sl := reflect.MakeSlice(fldValue.Type(), v.Len(), v.Len())
-					for i := 0; i < v.Len(); i++ {
-						item := v.Index(i).Interface()
-						itemValue := reflect.ValueOf(item)
-						sl.Index(i).Set(itemValue)
-					}
-					fldValue.Set(sl)
+					sl.Index(i).Set(itemValue)
 				}
+				fldValue.Set(sl)
 			}
 		}
 
@@ -703,6 +697,7 @@ func (d *Decoder) ReadObject() (interface{}, error) {
 		}
 		ary := make([]interface{}, i)
 		bl := isBuildInType(str.(string))
+
 		if bl == false {
 			for j := 0; j < i; j++ {
 				it, err := d.ReadObject()

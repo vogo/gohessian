@@ -2,7 +2,7 @@
 
 ## NOTICE
 Clone from [viant/gohessian](https://github.com/viant/gohessian) with following update:
-- fixed some problems, **BUT ToObject function still has problem for slice!** 
+- fixed some bugs 
 - remove println for debug 
 - fix code synatx check error
 

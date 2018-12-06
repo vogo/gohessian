@@ -1,5 +1,5 @@
 .idea
 
-temp_test.go
-local_test.go
+example/temp_test.go
+example/local_test.go
 
