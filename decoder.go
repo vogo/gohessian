@@ -438,6 +438,9 @@ func (d *Decoder) readInstance(typ reflect.Type, cls ClassDef) (interface{}, err
 		case kind == reflect.Slice || kind == reflect.Array:
 			m, err := d.ReadObject()
 			if err != nil {
+				if err == io.EOF {
+					break // ignore nil slice
+				}
 				return nil, newCodecError("decode error "+fldName, err)
 			}
 			v := reflect.ValueOf(m)

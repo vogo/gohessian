@@ -53,7 +53,19 @@ func TestHessian(t *testing.T) {
 		FirstName: "John",
 		LastName:  "Doe",
 	}
+
 	person := Person{
+		UserName: name,
+	}
+
+	encodeDecode(t, person, func(res interface{}) {
+		t.Log("decode person:", res)
+		t.Log("type of decode person:", reflect.TypeOf(res))
+		decodeObject := res.(*Person)
+		assert.True(t, reflect.DeepEqual(person, *decodeObject))
+	})
+
+	person = Person{
 		UserName: name,
 		Tags:     []string{"rich", "handsome"},
 		Age:      18,
