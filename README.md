@@ -1,11 +1,21 @@
 # gohessian
 
 ## NOTICE
-Clone from [viant/gohessian](https://github.com/viant/gohessian) with following update:
-- fixed some bugs 
-- remove println for debug 
-- fix code synatx check error
+Clone from [viant/gohessian](https://github.com/viant/gohessian) with following updates:
+- fix some bugs 
+- fix code synatx warning
+- remove fmt.Println()
 
+**NOT USE pointer fields as follow**:
+```
+type JOB struct {
+	Title   string   // <--------- NOT *string
+}
+type Worker struct {
+	Job        JOB   // <--------- NOT *JOB
+	HistoryJob []JOB // <--------- NOT *JOB
+}
+```
 ----
 
 This is a serializer that uses the Hessian protocol, implemented using the Go language.  It was designed at [Viant Inc](http://viantinc.com/ "Viant Inc.").  It can be used for many purposes, including with other open source projects, such as [CacheStore](https://github.com/viant/CacheStore "CacheStore"). Usage is fairly simple.
