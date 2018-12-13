@@ -432,7 +432,7 @@ func (d *Decoder) readInstance(typ reflect.Type, cls ClassDef) (interface{}, err
 
 				return nil, newCodecError("decode struct error "+fldName, err)
 			}
-			fldValue.Set(reflect.Indirect(s.(reflect.Value)))
+			fldValue.Set(reflect.Indirect(reflect.ValueOf(s)))
 		case kind == reflect.Map:
 			d.readMap(fldValue)
 		case kind == reflect.Slice || kind == reflect.Array:
@@ -461,7 +461,6 @@ func (d *Decoder) readInstance(typ reflect.Type, cls ClassDef) (interface{}, err
 				fldValue.Set(sl)
 			}
 		}
-
 	}
 	return vv, nil
 }
@@ -586,11 +585,43 @@ func (d *Decoder) ReadObject() (interface{}, error) {
 		if err != nil {
 			return nil, newCodecError("ReadType", err)
 		}
-		m := make(map[interface{}]interface{})
-		//read key and value
-		key, _ := d.ReadObject()
-		value, _ := d.ReadObject()
-		m[key] = value
+
+		//read first key and value
+		key, err := d.ReadObject()
+		if err != nil {
+			return nil, err
+		}
+		value, err := d.ReadObject()
+		if err != nil {
+			return nil, err
+		}
+
+		// get the type from value
+		mType := reflect.MapOf(reflect.TypeOf(key), reflect.TypeOf(value))
+
+		// create map from type
+		mValue := reflect.MakeMap(mType)
+
+		// add first key/value
+		mValue.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(value))
+
+		// continue read
+		for {
+			key, err := d.ReadObject()
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				return nil, err
+			}
+			value, err := d.ReadObject()
+			if err != nil {
+				return nil, err
+			}
+			mValue.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(value))
+		}
+
+		m := mValue.Interface()
 		return m, nil
 	case tag == BC_MAP_UNTYPED:
 		m := make(map[interface{}]interface{})
@@ -599,14 +630,18 @@ func (d *Decoder) ReadObject() (interface{}, error) {
 			key, err := d.ReadObject()
 			if err != nil {
 				if err == io.EOF {
-					return m, nil
+					break
 				}
-				return nil, newCodecError("ReadType", err)
+				return nil, err
 
 			}
 			value, err := d.ReadObject()
+			if err != nil {
+				return nil, err
+			}
 			m[key] = value
 		}
+		return m, nil
 	case tag == BC_OBJECT_DEF:
 		clsDef, err := d.readClassDef()
 		if err != nil {
@@ -625,7 +660,7 @@ func (d *Decoder) ReadObject() (interface{}, error) {
 		if !ok {
 			return nil, newCodecError("undefine type for "+clsD.FullClassName, err)
 		}
-		return d.readInstance(typ, clsD)
+		return EnsureObject(d.readInstance(typ, clsD))
 	case (tag >= 0x80 && tag <= 0xbf) || (tag >= 0xc0 && tag <= 0xcf) ||
 		(tag >= 0xd0 && tag <= 0xd7) || (tag == BC_INT):
 		return d.readInt(int32(tag))
@@ -679,12 +714,11 @@ func (d *Decoder) ReadObject() (interface{}, error) {
 		if !ok {
 			return nil, newCodecError("undefine type for "+clsD.FullClassName, err)
 		}
-		return d.readInstance(typ, clsD)
-
+		return EnsureObject(d.readInstance(typ, clsD))
 	case (tag == BC_BINARY || tag == BC_BINARY_CHUNK) || (tag >= 0x20 && tag <= 0x2f):
 		return d.readBinary(int32(tag))
 	case (tag >= BC_LIST_DIRECT && tag <= 0x77) || (tag == BC_LIST_FIXED || tag == BC_LIST_VARIABLE):
-		str, err := d.readType()
+		styp, err := d.readType()
 		if err != nil {
 			return nil, newCodecError("ReadType", err)
 		}
@@ -698,27 +732,26 @@ func (d *Decoder) ReadObject() (interface{}, error) {
 			}
 			i = int(ii.(int32))
 		}
-		ary := make([]interface{}, i)
-		bl := isBuildInType(str.(string))
+		isBuildInType(styp.(string))
 
-		if bl == false {
-			for j := 0; j < i; j++ {
-				it, err := d.ReadObject()
-				if err != nil {
-					return nil, newCodecError("ReadList", err)
-				}
-				ary[j] = it
-			}
-		} else {
-			for j := 0; j < i; j++ {
-				it, err := d.ReadObject()
-				if err != nil {
-					return nil, newCodecError("ReadList", err)
-				}
-				ary[j] = it
-			}
+		// read first array item
+		it, err := d.ReadObject()
+		if err != nil {
+			return nil, newCodecError("ReadList", err)
 		}
-		return ary, nil
+
+		aryType := reflect.SliceOf(reflect.TypeOf(it))
+		aryValue := reflect.MakeSlice(aryType, i, i)
+		aryValue.Index(0).Set(reflect.ValueOf(it))
+		for j := 1; j < i; j++ {
+			it, err := d.ReadObject()
+			if err != nil {
+				return nil, newCodecError("ReadList", err)
+			}
+			aryValue.Index(j).Set(reflect.ValueOf(it))
+		}
+
+		return aryValue.Interface(), nil
 	case (tag >= BC_LIST_DIRECT_UNTYPED && tag <= 0x7f) || (tag == BC_LIST_FIXED_UNTYPED || tag == BC_LIST_VARIABLE_UNTYPED):
 		var i int
 		if tag >= BC_LIST_DIRECT_UNTYPED && tag <= 0x7f {

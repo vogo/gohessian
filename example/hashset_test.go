@@ -38,9 +38,9 @@ func TestHashSet(t *testing.T) {
 
 	t.Log(obj)
 
-	arr, ok := obj.([]interface{})
+	arr, ok := obj.([]string)
 	if !ok {
-		t.Error("result not []interface{}")
+		t.Error("result not []string")
 	}
 
 	t.Logf("arr length:%d", len(arr))
@@ -48,10 +48,4 @@ func TestHashSet(t *testing.T) {
 	assert.Equal(t, 2, len(arr))
 	assert.Equal(t, "aaabbb", arr[1])
 	assert.Equal(t, "cccddd", arr[0])
-
-	sarr := make([]string, len(arr))
-	for i, s := range arr {
-		sarr[i] = s.(string)
-	}
-	t.Logf("sarr:%v", sarr)
 }

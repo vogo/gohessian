@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestHessian(t *testing.T) {
+func TestComplexStruct(t *testing.T) {
 	type UserName struct {
 		FirstName string
 		LastName  string
