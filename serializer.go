@@ -79,9 +79,6 @@ func ToObject(ins []byte, typMap map[string]reflect.Type) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	if t, ok := obj.(reflect.Value); ok {
-		return t.Interface(), nil
-	}
 	return obj, nil
 }
 

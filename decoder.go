@@ -34,7 +34,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"path/filepath"
 	"reflect"
@@ -159,7 +158,7 @@ func (d *Decoder) readBuf(s int) ([]byte, error) {
 func (d *Decoder) ReadObjectWithType(typ reflect.Type, name string) (interface{}, error) {
 	//register the type if it did exist
 	if _, ok := d.typMap[name]; ok {
-		log.Println("over write existing type")
+		hlog.Debug("over write existing type")
 	}
 	d.typMap[name] = typ
 	return d.ReadObject()
@@ -384,7 +383,7 @@ func (d *Decoder) readInstance(typ reflect.Type, cls ClassDef) (interface{}, err
 		fldName := cls.FieldName[i]
 		index, err := findField(fldName, typ)
 		if err != nil {
-			log.Printf("%s is not found, will ski type ->p %v", fldName, typ)
+			hlog.Debugf("%s is not found, will ski type ->p %v", fldName, typ)
 			continue
 		}
 		fldValue := st.Field(index)
@@ -568,7 +567,8 @@ func (d *Decoder) readType() (interface{}, error) {
 func (d *Decoder) ReadObject() (interface{}, error) {
 	tag, err := d.readBufByte()
 	if err != nil {
-		return nil, newCodecError("reading tag", err)
+		hlog.Debugf("reading tag err:%v", err)
+		return nil, nil //ignore
 	}
 	switch {
 	case tag == BC_END:
