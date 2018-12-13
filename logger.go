@@ -17,4 +17,13 @@ package hessian
 
 import "github.com/luckincoffee/logger"
 
-var hlog = logger.DefaultLogger
+var hlog logger.Logger
+
+func init() {
+	SetLogger(logger.DefaultLogger)
+}
+
+//SetLogger set new logger
+func SetLogger(l logger.Logger) {
+	hlog = l
+}
