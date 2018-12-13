@@ -734,6 +734,9 @@ func (d *Decoder) ReadObject() (interface{}, error) {
 		for j := 0; j < i; j++ {
 			it, err := d.ReadObject()
 			if err != nil {
+				if err == io.EOF {
+					continue
+				}
 				return nil, newCodecError("ReadList", err)
 			}
 			ary[j] = it
