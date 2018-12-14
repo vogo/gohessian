@@ -740,6 +740,11 @@ func (d *Decoder) ReadObject() (interface{}, error) {
 			return nil, newCodecError("ReadList", err)
 		}
 
+		// return when no element
+		if i <= 0 || it == nil {
+			return []interface{}{}, nil
+		}
+
 		aryType := reflect.SliceOf(reflect.TypeOf(it))
 		aryValue := reflect.MakeSlice(aryType, i, i)
 		aryValue.Index(0).Set(reflect.ValueOf(it))
