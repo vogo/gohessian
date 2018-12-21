@@ -589,6 +589,11 @@ func (d *Decoder) ReadObject() (interface{}, error) {
 		//read first key and value
 		key, err := d.ReadObject()
 		if err != nil {
+			if err == io.EOF {
+				// return empty map if no elements exists
+				m := make(map[interface{}]interface{})
+				return m, nil
+			}
 			return nil, err
 		}
 		value, err := d.ReadObject()
@@ -918,13 +923,3 @@ func (d *Decoder) readClassDef() (interface{}, error) {
 	cls := ClassDef{clsName, fields}
 	return cls, nil
 }
-
-//func floatDecoder(r io.Reader) (interface{}, error) {
-//	buf := make([]byte, 4)
-//	if _, err := io.ReadFull(r, buf); err != nil {
-//		return nil, newCodecError("float", err)
-//	}
-//	bits := binary.LittleEndian.Uint32(buf)
-//	datum := math.Float32frombits(bits)
-//	return datum, nil
-//}
