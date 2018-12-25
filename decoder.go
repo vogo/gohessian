@@ -284,8 +284,7 @@ func (d *Decoder) readString(flag int32) (interface{}, error) {
 	}
 	last := true
 
-	match := (tag >= BC_STRING_DIRECT && tag <= STRING_DIRECT_MAX) || (tag >= 0x30 && tag <= 0x33) || (tag == BC_STRING_CHUNK || tag == BC_STRING)
-	if !match {
+	if tag == BC_NULL || !strTag(tag) {
 		// null string will not match
 		return nil, nil
 	}
@@ -351,7 +350,7 @@ func (d *Decoder) getStrLen(tag byte) (int32, error) {
 	switch {
 	case tag >= BC_STRING_DIRECT && tag <= STRING_DIRECT_MAX:
 		return int32(tag - 0x00), nil
-	case tag >= 0x30 && tag <= 0x33:
+	case tag >= 0x30 && tag <= 0x34:
 		buf := make([]byte, 1)
 		_, err := io.ReadFull(d.reader, buf)
 		if err != nil {
@@ -551,7 +550,7 @@ func (d *Decoder) readType() (interface{}, error) {
 		return nil, newCodecError("reading tag", err)
 	}
 	tag := buf[0]
-	if (tag >= BC_STRING_DIRECT && tag <= STRING_DIRECT_MAX) || (tag >= 0x30 && tag <= 0x33) || (tag == BC_STRING || tag == BC_STRING_CHUNK) {
+	if strTag(tag) {
 		return d.readString(int32(tag))
 	}
 	i, err := d.readInt(TAG_READ)
@@ -708,9 +707,7 @@ func (d *Decoder) ReadObject() (interface{}, error) {
 		return nil, newCodecError("not yet implementd")
 	case tag == BC_DATE_MINUTE:
 		return nil, newCodecError("not yet implementd")
-	case (tag == BC_STRING_CHUNK || tag == BC_STRING) ||
-		(tag >= BC_STRING_DIRECT && tag <= STRING_DIRECT_MAX) ||
-		(tag >= 0x30 && tag <= 0x33):
+	case strTag(tag):
 		return d.readString(int32(tag))
 	case (tag >= 0x60 && tag <= 0x6f):
 		i := int(tag - 0x60)
@@ -784,8 +781,9 @@ func (d *Decoder) ReadObject() (interface{}, error) {
 			}
 			ary[j] = it
 		}
-		//read the endbyte of list
-		d.readBufByte()
+		// read the endbyte of list
+		// 20181225 not read for already removing list end
+		// d.readBufByte()
 		return ary, nil
 	default:
 		return nil, newCodecError("unkonw tag")

@@ -189,6 +189,7 @@ func (e *Encoder) writeString(value string) (int, error) {
 	}
 	var buf []byte
 	if l == 0 {
+		e.writer.Write([]byte{BC_NULL})
 		return len(dataBys), nil
 	} else if l <= int(STRING_DIRECT_MAX) {
 		buf = make([]byte, 1)
@@ -221,7 +222,8 @@ func (e *Encoder) writeList(data interface{}) (int, error) {
 	for i := 0; i < vv.Len(); i++ {
 		e.WriteObject(vv.Index(i).Interface())
 	}
-	e.writeBT(BC_END)
+	// 20181225 removing list end
+	// e.writeBT(BC_END)
 	return vv.Len(), nil
 }
 
