@@ -16,7 +16,7 @@
  *
  */
 
-package hessian_test
+package htests
 
 import (
 	"reflect"

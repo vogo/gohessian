@@ -1,4 +1,4 @@
-package hessian_test
+package htests
 
 import (
 	"encoding/base64"

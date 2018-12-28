@@ -68,16 +68,44 @@ func (e *Encoder) WriteObject(data interface{}) (int, error) {
 		return 1, nil
 	}
 	typ := reflect.TypeOf(data)
+	for typ.Kind() == reflect.Ptr {
+		data = reflect.ValueOf(data).Elem().Interface()
+		typ = typ.Elem()
+	}
 
 	switch typ.Kind() {
 	case reflect.String:
 		value := data.(string)
 		return e.writeString(value)
-	case reflect.Int32:
+	case reflect.Int8: // as int
+		value := int32(data.(int8))
+		return e.writeInt(value)
+	case reflect.Int16: // as int
+		value := int32(data.(int16))
+		return e.writeInt(value)
+	case reflect.Int32: // as int
 		value := data.(int32)
 		return e.writeInt(value)
-	case reflect.Int64:
+	case reflect.Int: // as int
+		value := int32(data.(int))
+		return e.writeInt(value)
+	case reflect.Uint8: // as int
+		value := int32(data.(uint8))
+		return e.writeInt(value)
+	case reflect.Uint16: // as int
+		value := int32(data.(uint16))
+		return e.writeInt(value)
+	case reflect.Int64: // as long
 		value := data.(int64)
+		return e.writeLong(value)
+	case reflect.Uint: // as long
+		value := int64(data.(uint))
+		return e.writeLong(value)
+	case reflect.Uint32: // as long
+		value := int64(data.(uint32))
+		return e.writeLong(value)
+	case reflect.Uint64: // as long
+		value := int64(data.(uint64))
 		return e.writeLong(value)
 	case reflect.Slice, reflect.Array:
 		return e.writeList(data)
@@ -95,10 +123,11 @@ func (e *Encoder) WriteObject(data interface{}) (int, error) {
 	case reflect.Struct:
 		return e.writeInstance(data)
 	}
-	return 0, fmt.Errorf("unsupport object:%v, kind:%v, type:%v", data, typ.Kind(), typ)
+	return 0, fmt.Errorf("unsupported object:%v, kind:%v, type:%v", data, typ.Kind(), typ)
 
 }
 
+// see: http://hessian.caucho.com/doc/hessian-serialization.html##double
 func (e *Encoder) writeDouble(value float64) (int, error) {
 	v := float64(int64(value))
 	if v == value {
@@ -124,46 +153,53 @@ func (e *Encoder) writeDouble(value float64) (int, error) {
 
 }
 
+// see: http://hessian.caucho.com/doc/hessian-serialization.html##map
 func (e *Encoder) writeMap(data interface{}) (int, error) {
-	e.writeBT(BC_MAP_UNTYPED)
 	vv := reflect.ValueOf(data)
-	typ := reflect.TypeOf(data).Key()
-	keys := vv.MapKeys()
-	for i := 0; i < len(keys); i++ {
-		k := buildKey(keys[i], typ)
-		e.WriteObject(k)
-		//e.WriteObject(keys[i].Interface())
-		//v := buildValue(vv.MapIndex(keys[i]))
-		//e.WriteObject(v)
-		e.WriteObject(vv.MapIndex(keys[i]).Interface())
+	typ := vv.Type()
+
+	mapName, ok := e.nameMap[typ.Name()]
+	if ok {
+		e.writeBT(BC_MAP)
+		e.writeString(mapName)
+	} else {
+		e.writeBT(BC_MAP_UNTYPED)
 	}
+
+	count := 0
+
+	if typ.Kind() == reflect.Map {
+		keys := vv.MapKeys()
+		count = len(keys)
+		for i := 0; i < count; i++ {
+			k := keys[i]
+			_, err := e.WriteObject(k.Interface())
+			if err != nil {
+				return 0, err
+			}
+			_, err = e.WriteObject(vv.MapIndex(keys[i]).Interface())
+			if err != nil {
+				return 0, err
+			}
+		}
+	} else {
+		count = vv.NumField()
+		for i := 0; i < count; i++ {
+			f := vv.Field(i)
+			e.writeString(f.Type().Name())
+			_, err := e.WriteObject(f.Interface())
+			if err != nil {
+				return 0, err
+			}
+		}
+	}
+
 	e.writeBT(BC_END)
-	return len(keys), nil
+
+	return count, nil
 }
 
-func buildKey(key reflect.Value, typ reflect.Type) interface{} {
-	switch typ.Kind() {
-	case reflect.String:
-		return key.String()
-	case reflect.Bool:
-		return key.Bool()
-	case reflect.Int:
-		return int32(key.Int())
-	case reflect.Int8:
-		return int8(key.Int())
-	case reflect.Int16:
-	case reflect.Int32:
-		return int32(key.Int())
-	case reflect.Int64:
-		return key.Int()
-	case reflect.Uint8:
-		return byte(key.Uint())
-	case reflect.Uint, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return key.Uint()
-	}
-	return newCodecError("unsuport key kind " + typ.Kind().String())
-}
-
+// see: http://hessian.caucho.com/doc/hessian-serialization.html##string
 func (e *Encoder) writeString(value string) (int, error) {
 	dataBys := []byte(value)
 	l := len(dataBys)
@@ -214,31 +250,30 @@ func (e *Encoder) writeString(value string) (int, error) {
 	return l, nil
 }
 
+// see: http://hessian.caucho.com/doc/hessian-serialization.html##list
 func (e *Encoder) writeList(data interface{}) (int, error) {
-
 	vv := reflect.ValueOf(data)
 	e.writeBT(BC_LIST_FIXED_UNTYPED)
 	e.writeInt(int32(vv.Len()))
 	for i := 0; i < vv.Len(); i++ {
 		e.WriteObject(vv.Index(i).Interface())
 	}
-	// 20181225 removing list end
-	// e.writeBT(BC_END)
 	return vv.Len(), nil
 }
 
+// see: http://hessian.caucho.com/doc/hessian-serialization.html##int
 func (e *Encoder) writeInt(value int32) (int, error) {
 	var buf []byte
-	if int32(INT_DIRECT_MIN) <= value && value <= int32(INT_DIRECT_MAX) {
+	if Int32DirectMin <= value && value <= Int32DirectMax {
 		buf = make([]byte, 1)
-		buf[0] = byte(value + int32(BC_INT_ZERO))
-	} else if int32(INT_BYTE_MIN) <= value && value <= int32(INT_BYTE_MAX) {
+		buf[0] = byte(Int32BcIntZero + value)
+	} else if Int32ByteMin <= value && value <= Int32ByteMax {
 		buf = make([]byte, 2)
-		buf[0] = byte(int32(BC_INT_BYTE_ZERO) + value>>8)
+		buf[0] = byte(Int32BcIntByteZero + value>>8)
 		buf[1] = byte(value)
-	} else if int32(INT_SHORT_MIN) <= value && value <= int32(INT_SHORT_MAX) {
+	} else if Int32ShortMin <= value && value <= Int32ShortMax {
 		buf = make([]byte, 3)
-		buf[0] = byte(value>>16 + int32(BC_INT_SHORT_ZERO))
+		buf[0] = byte(Int32BcIntShortZero + value>>16)
 		buf[1] = byte(value >> 8)
 		buf[2] = byte(value)
 	} else {
@@ -256,18 +291,19 @@ func (e *Encoder) writeInt(value int32) (int, error) {
 	return l, nil
 }
 
+// see: http://hessian.caucho.com/doc/hessian-serialization.html##long
 func (e *Encoder) writeLong(value int64) (int, error) {
 	var buf []byte
-	if int64(LONG_DIRECT_MIN) <= value && value <= int64(LONG_DIRECT_MAX) {
+	if Int64LongDirectMin <= value && value <= Int64LongDirectMax {
 		buf = make([]byte, 1)
-		buf[0] = byte(value - int64(BC_LONG_ZERO))
-	} else if int64(LONG_BYTE_MIN) <= value && value <= int64(LONG_BYTE_MAX) {
+		buf[0] = byte(Int64BcLongZero + value)
+	} else if Int64LongByteMin <= value && value <= Int64LongByteMax {
 		buf = make([]byte, 2)
-		buf[0] = byte(int64(BC_LONG_BYTE_ZERO) + (value >> 8))
+		buf[0] = byte(Int64BcLongByteZero + (value >> 8))
 		buf[1] = byte(value)
-	} else if int64(LONG_SHORT_MIN) <= value && value <= int64(LONG_SHORT_MAX) {
+	} else if Int64LongShortMin <= value && value <= Int64LongShortMax {
 		buf = make([]byte, 3)
-		buf[0] = byte(int64(BC_LONG_SHORT_ZERO) + (value >> 16))
+		buf[0] = byte(Int64BcLongShortZero + (value >> 16))
 		buf[1] = byte(value >> 8)
 		buf[2] = byte(value)
 	} else if 0x80000000 <= value && value <= 0x7fffffff {
@@ -295,6 +331,7 @@ func (e *Encoder) writeLong(value int64) (int, error) {
 	return l, nil
 }
 
+// see: http://hessian.caucho.com/doc/hessian-serialization.html##boolean
 func (e *Encoder) writeBoolean(value bool) (int, error) {
 	buf := make([]byte, 1)
 	if value {
@@ -309,6 +346,7 @@ func (e *Encoder) writeBoolean(value bool) (int, error) {
 	return l, nil
 }
 
+// see: http://hessian.caucho.com/doc/hessian-serialization.html##binary
 func (e *Encoder) writeBytes(value []byte) (int, error) {
 	sub := CHUNK_SIZE
 	l := len(value)
@@ -358,6 +396,7 @@ func (e *Encoder) writeBT(bs ...byte) (int, error) {
 	return e.writer.Write(bs)
 }
 
+//see: http://hessian.caucho.com/doc/hessian-serialization.html##object
 func (e *Encoder) writeInstance(data interface{}) (int, error) {
 	typ := reflect.TypeOf(data)
 	vv := reflect.ValueOf(data)
@@ -378,10 +417,11 @@ func (e *Encoder) writeInstance(data interface{}) (int, error) {
 		e.writeInt(int32(l))
 	}
 	for i := 0; i < vv.NumField(); i++ {
-		//if field.Field(i).Type().PkgPath() != "" {
-		//	continue
-		//}
-		e.writeField(vv.Field(i), vv.Field(i).Type().Kind())
+		//err := e.writeField(vv.Field(i), vv.Field(i).Type().Kind())
+		_, err := e.WriteObject(vv.Field(i).Interface())
+		if err != nil {
+			return 0, err
+		}
 	}
 	return vv.NumField(), nil
 }
@@ -412,7 +452,7 @@ func (e *Encoder) writeField(field reflect.Value, kind reflect.Kind) error {
 		v := int32(field.Int())
 		e.writeInt(v)
 	}
-	return newCodecError("writeField unspport kind " + kind.String())
+	return newCodecError("writeField unsupported kind " + kind.String())
 }
 
 func (e *Encoder) writeClsDef(typ reflect.Type, clsName string) (int, error) {

@@ -32,23 +32,14 @@ package hessian
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"io"
 	"math"
-	"path/filepath"
 	"reflect"
-	"runtime"
 	"strings"
 )
 
 var _ = bytes.MinRead
 var _ = reflect.Value{}
-
-// ErrDecoder is returned when the encoder encounters an error.
-type ErrDecoder struct {
-	Message string
-	Err     error
-}
 
 // ClassDef class def
 type ClassDef struct {
@@ -94,46 +85,6 @@ func (d *Decoder) Reset() {
 	d.typMap = make(map[string]reflect.Type, 17)
 	d.clsDefList = make([]ClassDef, 0, 17)
 	d.refList = make([]interface{}, 17)
-}
-
-func (e ErrDecoder) Error() string {
-	if e.Err == nil {
-		return "cannot decode " + e.Message
-	}
-	return "cannot decode " + e.Message + ": " + e.Err.Error()
-}
-
-func newCodecError(dataType string, a ...interface{}) *ErrDecoder {
-	var err error
-	var format, message string
-	var ok bool
-
-	_, file, line, ok := runtime.Caller(1)
-	if !ok {
-		file = "???"
-		line = 0
-	}
-	file = filepath.Base(file)
-	caller := fmt.Sprintf("(%s:%d)", file, line)
-
-	if len(a) == 0 {
-		return &ErrDecoder{dataType + ": no reason given" + caller, nil}
-	}
-	// if last item is error: save it
-	if err, ok = a[len(a)-1].(error); ok {
-		a = a[:len(a)-1] // pop it
-	}
-	// if items left, first ought to be format string
-	if len(a) > 0 {
-		if format, ok = a[0].(string); ok {
-			a = a[1:] // unshift
-			message = fmt.Sprintf(format, a...)
-		}
-	}
-	if message != "" {
-		message = ": " + message
-	}
-	return &ErrDecoder{dataType + message + caller, err}
 }
 
 func (d *Decoder) readBufByte() (byte, error) {
@@ -275,7 +226,7 @@ func (d *Decoder) readDouble(flag int32) (interface{}, error) {
 	return nil, newCodecError("parse double wrong tag " + string(tag))
 }
 
-func (d *Decoder) readString(flag int32) (interface{}, error) {
+func (d *Decoder) readString(flag int32) (string, error) {
 	var tag byte
 	if flag != TAG_READ {
 		tag = byte(flag)
@@ -286,7 +237,7 @@ func (d *Decoder) readString(flag int32) (interface{}, error) {
 
 	if tag == BC_NULL || !strTag(tag) {
 		// null string will not match
-		return nil, nil
+		return "", nil
 	}
 
 	if tag == BC_STRING_CHUNK {
@@ -296,7 +247,7 @@ func (d *Decoder) readString(flag int32) (interface{}, error) {
 	}
 	l, err := d.getStrLen(tag)
 	if err != nil {
-		return nil, newCodecError("getStrLen", err)
+		return "", newCodecError("getStrLen", err)
 	}
 
 	var length int32
@@ -305,14 +256,14 @@ func (d *Decoder) readString(flag int32) (interface{}, error) {
 	for i := 0; ; {
 		if int32(i) == length {
 			if last {
-				return string(data), nil
+				break
 			}
 
 			buf := make([]byte, 1)
 			_, err := io.ReadFull(d.reader, buf)
 
 			if err != nil {
-				return nil, newCodecError("byte1 integer", err)
+				return "", newCodecError("byte1 integer", err)
 			}
 			b := buf[0]
 			switch {
@@ -324,26 +275,27 @@ func (d *Decoder) readString(flag int32) (interface{}, error) {
 				}
 				l, err := d.getStrLen(b)
 				if err != nil {
-					return nil, newCodecError("getStrLen", err)
+					return "", newCodecError("getStrLen", err)
 				}
 				length += l
 				bs := make([]byte, 0, length)
 				copy(bs, data)
 				data = bs
 			default:
-				return nil, newCodecError("tag error ", err)
+				return "", newCodecError("tag error ", err)
 			}
 		} else {
 			buf := make([]byte, 1)
 			_, err := io.ReadFull(d.reader, buf)
 			if err != nil {
-				return nil, newCodecError("byte2 integer", err)
+				return "", newCodecError("byte2 integer", err)
 			}
 			data[i] = buf[0]
 			i++
 		}
 	}
-	// return string(data), nil
+
+	return string(data), nil
 }
 
 func (d *Decoder) getStrLen(tag byte) (int32, error) {
@@ -374,7 +326,7 @@ func (d *Decoder) getStrLen(tag byte) (int32, error) {
 
 func (d *Decoder) readInstance(typ reflect.Type, cls ClassDef) (interface{}, error) {
 	if typ.Kind() != reflect.Struct {
-		return nil, newCodecError("wrong type expect Struct but get " + typ.String())
+		return nil, newCodecError("wrong type expect struct but get " + typ.String())
 	}
 	vv := reflect.New(typ)
 	st := reflect.ValueOf(vv.Interface()).Elem()
@@ -382,7 +334,7 @@ func (d *Decoder) readInstance(typ reflect.Type, cls ClassDef) (interface{}, err
 		fldName := cls.FieldName[i]
 		index, err := findField(fldName, typ)
 		if err != nil {
-			hlog.Debugf("%s is not found, will ski type ->p %v", fldName, typ)
+			hlog.Debugf("%s is not found, will skip type ->p %v", fldName, typ)
 			continue
 		}
 		fldValue := st.Field(index)
@@ -390,50 +342,63 @@ func (d *Decoder) readInstance(typ reflect.Type, cls ClassDef) (interface{}, err
 			return nil, newCodecError("CanSet false for " + fldName)
 		}
 		kind := fldValue.Kind()
-		switch {
-		case kind == reflect.String:
+		switch kind {
+		case reflect.String:
 			str, err := d.readString(TAG_READ)
 			if err != nil {
 				return nil, newCodecError("ReadString "+fldName, err)
 			}
-			if str != nil {
-				fldValue.SetString(str.(string))
+			if str != "" {
+				fldValue.SetString(str)
 			}
-		case kind == reflect.Int32 || kind == reflect.Int || kind == reflect.Int16:
+		case reflect.Int32, reflect.Int, reflect.Int16, reflect.Int8:
 			i, err := d.readInt(TAG_READ)
-			if err != nil {
-				return nil, newCodecError("ParseInt"+fldName, err)
-			}
-			v := int64(i.(int32))
-			fldValue.SetInt(v)
-		case kind == reflect.Int64 || kind == reflect.Uint64:
-			i, err := d.readLong(TAG_READ)
 			if err != nil {
 				return nil, newCodecError("decode int error "+fldName, err)
 			}
+			v := int64(i.(int32))
+			fldValue.SetInt(v)
+		case reflect.Uint8, reflect.Uint16:
+			i, err := d.readInt(TAG_READ)
+			if err != nil {
+				return nil, newCodecError("decode int error "+fldName, err)
+			}
+			v := uint64(i.(int32))
+			fldValue.SetUint(v)
+		case reflect.Int64:
+			i, err := d.readLong(TAG_READ)
+			if err != nil {
+				return nil, newCodecError("decode long error "+fldName, err)
+			}
 			fldValue.SetInt(i.(int64))
-		case kind == reflect.Bool:
+		case reflect.Uint64, reflect.Uint, reflect.Uint32:
+			i, err := d.readLong(TAG_READ)
+			if err != nil {
+				return nil, newCodecError("decode long error "+fldName, err)
+			}
+			fldValue.SetUint(uint64(i.(int64)))
+		case reflect.Bool:
 			b, err := d.ReadObject()
 			if err != nil {
 				return nil, newCodecError("decode bool error "+fldName, err)
 			}
 			fldValue.SetBool(b.(bool))
-		case kind == reflect.Float32 || kind == reflect.Float64:
+		case reflect.Float32, reflect.Float64:
 			d, err := d.readDouble(TAG_READ)
 			if err != nil {
 				return nil, newCodecError("decode float error "+fldName, err)
 			}
 			fldValue.SetFloat(d.(float64))
-		case kind == reflect.Struct:
+		case reflect.Struct:
 			s, err := d.ReadObject()
 			if err != nil {
 
 				return nil, newCodecError("decode struct error "+fldName, err)
 			}
 			fldValue.Set(reflect.Indirect(reflect.ValueOf(s)))
-		case kind == reflect.Map:
+		case reflect.Map:
 			d.readMap(fldValue)
-		case kind == reflect.Slice || kind == reflect.Array:
+		case reflect.Slice, reflect.Array:
 			m, err := d.ReadObject()
 			if err != nil {
 				if err == io.EOF {
@@ -463,6 +428,7 @@ func (d *Decoder) readInstance(typ reflect.Type, cls ClassDef) (interface{}, err
 	return vv, nil
 }
 
+// http://hessian.caucho.com/doc/hessian-serialization.html#anchor27
 func (d *Decoder) readMap(value reflect.Value) error {
 	tag, _ := d.readBufByte()
 	if tag == BC_MAP {
@@ -473,6 +439,7 @@ func (d *Decoder) readMap(value reflect.Value) error {
 		return newCodecError("wrong header BC_MAP_UNTYPED")
 	}
 	m := reflect.MakeMap(value.Type())
+
 	//read key and value
 	for {
 		key, err := d.ReadObject()
@@ -543,23 +510,96 @@ func findField(name string, typ reflect.Type) (int, error) {
 	return 0, newCodecError("findField")
 }
 
-func (d *Decoder) readType() (interface{}, error) {
+func (d *Decoder) readType() (string, error) {
 	buf := make([]byte, 1)
 	_, err := io.ReadFull(d.reader, buf)
 	if err != nil {
-		return nil, newCodecError("reading tag", err)
+		return "", newCodecError("reading tag", err)
 	}
 	tag := buf[0]
 	if strTag(tag) {
-		return d.readString(int32(tag))
+		t, err := d.readString(int32(tag))
+		if err != nil {
+			return "", newCodecError("reading tag", err)
+		}
+		d.typList = append(d.typList, t)
+		return t, nil
 	}
 	i, err := d.readInt(TAG_READ)
 	if err != nil {
-		return nil, newCodecError("reading tag", err)
+		return "", newCodecError("reading tag", err)
 	}
 	index := int(i.(int32))
 	return d.typList[index], nil
 
+}
+
+//ReadTypedMap read typed map
+// see: http://hessian.caucho.com/doc/hessian-serialization.html#anchor27
+func (d *Decoder) ReadTypedMap() (interface{}, error) {
+	typ, err := d.readType()
+	if err != nil {
+		return nil, newCodecError("ReadType", err)
+	}
+	mType, ok := d.typMap[typ]
+	if !ok {
+		return nil, newCodecError("ReadType", "no type map for ", typ)
+	}
+	var mValue reflect.Value
+	if mType.Kind() == reflect.Map {
+		mValue = reflect.MakeMap(mType)
+	} else {
+		mValue = reflect.New(mType)
+	}
+
+	for {
+		key, err := d.ReadObject()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+		value, err := d.ReadObject()
+		if err != nil {
+			return nil, err
+		}
+		if mType.Kind() == reflect.Map {
+			mValue.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(value))
+		} else {
+			fieldName, _ := key.(string)
+			fieldValue := mValue.FieldByName(fieldName)
+			if fieldValue.IsValid() {
+				fieldValue.Set(reflect.ValueOf(value))
+			}
+		}
+	}
+
+	m := mValue.Interface()
+	return m, nil
+}
+
+//ReadMapUntyped read untyped map
+// see: http://hessian.caucho.com/doc/hessian-serialization.html#anchor27
+func (d *Decoder) ReadUntypedMap() (interface{}, error) {
+	m := make(map[interface{}]interface{})
+	//read key and value
+	for {
+		key, err := d.ReadObject()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+
+		}
+		value, err := d.ReadObject()
+		if err != nil {
+			return nil, err
+		}
+		m[key] = value
+	}
+	return m, nil
 }
 
 //ReadObject read object
@@ -580,72 +620,9 @@ func (d *Decoder) ReadObject() (interface{}, error) {
 		return false, nil
 		//direct integer
 	case tag == BC_MAP:
-		_, err := d.readType()
-		if err != nil {
-			return nil, newCodecError("ReadType", err)
-		}
-
-		//read first key and value
-		key, err := d.ReadObject()
-		if err != nil {
-			if err == io.EOF {
-				// return empty map if no elements exists
-				m := make(map[interface{}]interface{})
-				return m, nil
-			}
-			return nil, err
-		}
-		value, err := d.ReadObject()
-		if err != nil {
-			return nil, err
-		}
-
-		// get the type from value
-		mType := reflect.MapOf(reflect.TypeOf(key), reflect.TypeOf(value))
-
-		// create map from type
-		mValue := reflect.MakeMap(mType)
-
-		// add first key/value
-		mValue.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(value))
-
-		// continue read
-		for {
-			key, err := d.ReadObject()
-			if err != nil {
-				if err == io.EOF {
-					break
-				}
-				return nil, err
-			}
-			value, err := d.ReadObject()
-			if err != nil {
-				return nil, err
-			}
-			mValue.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(value))
-		}
-
-		m := mValue.Interface()
-		return m, nil
+		return d.ReadTypedMap()
 	case tag == BC_MAP_UNTYPED:
-		m := make(map[interface{}]interface{})
-		//read key and value
-		for {
-			key, err := d.ReadObject()
-			if err != nil {
-				if err == io.EOF {
-					break
-				}
-				return nil, err
-
-			}
-			value, err := d.ReadObject()
-			if err != nil {
-				return nil, err
-			}
-			m[key] = value
-		}
-		return m, nil
+		return d.ReadUntypedMap()
 	case tag == BC_OBJECT_DEF:
 		clsDef, err := d.readClassDef()
 		if err != nil {
@@ -704,9 +681,9 @@ func (d *Decoder) ReadObject() (interface{}, error) {
 		if err != nil {
 			return nil, newCodecError("date", err)
 		}
-		return nil, newCodecError("not yet implementd")
+		return nil, newCodecError("date decode not yet implemented")
 	case tag == BC_DATE_MINUTE:
-		return nil, newCodecError("not yet implementd")
+		return nil, newCodecError("date minute decode not yet implemented")
 	case strTag(tag):
 		return d.readString(int32(tag))
 	case (tag >= 0x60 && tag <= 0x6f):
@@ -714,7 +691,7 @@ func (d *Decoder) ReadObject() (interface{}, error) {
 		clsD := d.clsDefList[i]
 		typ, ok := d.typMap[clsD.FullClassName]
 		if !ok {
-			return nil, newCodecError("undefine type for "+clsD.FullClassName, err)
+			return nil, newCodecError("undefined type for "+clsD.FullClassName, err)
 		}
 		return EnsureObject(d.readInstance(typ, clsD))
 	case (tag == BC_BINARY || tag == BC_BINARY_CHUNK) || (tag >= 0x20 && tag <= 0x2f):
@@ -734,7 +711,7 @@ func (d *Decoder) ReadObject() (interface{}, error) {
 			}
 			i = int(ii.(int32))
 		}
-		isBuildInType(styp.(string))
+		isBuildInType(styp)
 
 		// read first array item
 		it, err := d.ReadObject()
@@ -781,31 +758,14 @@ func (d *Decoder) ReadObject() (interface{}, error) {
 			}
 			ary[j] = it
 		}
-		// read the endbyte of list
-		// 20181225 not read for already removing list end
-		// d.readBufByte()
+
+		if tag == BC_LIST_VARIABLE_UNTYPED {
+			// read list end tag 'Z'
+			d.readBufByte()
+		}
 		return ary, nil
 	default:
 		return nil, newCodecError("unkonw tag")
-	}
-}
-
-func isBuildInType(typeStr string) bool {
-	switch typeStr {
-	case ARRAY_STRING:
-		return true
-	case ARRAY_INT:
-		return true
-	case ARRAY_FLOAT:
-		return true
-	case ARRAY_DOUBLE:
-		return true
-	case ARRAY_BOOL:
-		return true
-	case ARRAY_LONG:
-		return true
-	default:
-		return false
 	}
 }
 
@@ -893,30 +853,22 @@ func (d *Decoder) getBinLen(tag byte) (int, error) {
 }
 
 func (d *Decoder) readClassDef() (interface{}, error) {
-	f, err := d.readString(TAG_READ)
+	clsName, err := d.readString(TAG_READ)
 	if err != nil {
 		return nil, newCodecError("ReadClassDef", err)
-	}
-	clsName, ok := f.(string)
-	if !ok {
-		return nil, newCodecError("wrong type")
 	}
 	n, err := d.readInt(TAG_READ)
 	if err != nil {
 		return nil, newCodecError("ReadClassDef", err)
 	}
-	no, ok := n.(int32)
+	no, _ := n.(int32)
 	fields := make([]string, no)
 	for i := 0; i < int(no); i++ {
 		s, err := d.readString(TAG_READ)
 		if err != nil {
 			return nil, newCodecError("ReadClassDef", err)
 		}
-		s1, ok := s.(string)
-		if !ok {
-			return nil, newCodecError("wrong type")
-		}
-		fields[i] = s1
+		fields[i] = s
 	}
 	cls := ClassDef{clsName, fields}
 	return cls, nil

@@ -18,6 +18,8 @@
 
 package hessian
 
+import "reflect"
+
 const (
 	mask = byte(127)
 	flag = byte(128)
@@ -125,4 +127,31 @@ const (
 	ARRAY_FLOAT      = "[float"
 	ARRAY_BOOL       = "[boolean"
 	ARRAY_LONG       = "[long"
+)
+
+const (
+	Int32DirectMin      = int32(INT_DIRECT_MIN)
+	Int32DirectMax      = int32(INT_DIRECT_MAX)
+	Int32BcIntZero      = int32(BC_INT_ZERO)
+	Int32ByteMin        = int32(INT_BYTE_MIN)
+	Int32ByteMax        = int32(INT_BYTE_MAX)
+	Int32BcIntByteZero  = int32(BC_INT_BYTE_ZERO)
+	Int32ShortMin       = int32(INT_SHORT_MIN)
+	Int32ShortMax       = int32(INT_SHORT_MAX)
+	Int32BcIntShortZero = int32(BC_INT_SHORT_ZERO)
+
+	Int64LongDirectMin   = int64(LONG_DIRECT_MIN)
+	Int64LongDirectMax   = int64(LONG_DIRECT_MAX)
+	Int64BcLongZero      = int64(BC_LONG_ZERO)
+	Int64LongByteMin     = int64(LONG_BYTE_MIN)
+	Int64LongByteMax     = int64(LONG_BYTE_MAX)
+	Int64BcLongByteZero  = int64(BC_LONG_BYTE_ZERO)
+	Int64LongShortMin    = int64(LONG_SHORT_MIN)
+	Int64LongShortMax    = int64(LONG_SHORT_MAX)
+	Int64BcLongShortZero = int64(BC_LONG_SHORT_ZERO)
+)
+
+var (
+	_interfaceInstance interface{} = 1
+	interfaceType                  = reflect.TypeOf(_interfaceInstance)
 )
