@@ -15,7 +15,9 @@
 
 package hessian
 
-import "reflect"
+import (
+	"io"
+)
 
 func lowerName(name string) (string, error) {
 	if name[0] >= 'a' && name[0] <= 'c' {
@@ -30,45 +32,27 @@ func lowerName(name string) (string, error) {
 	return name, nil
 }
 
-func strTag(tag byte) bool {
-	return (tag >= BcStringDirect && tag <= StringDirectMax) || (tag >= 0x30 && tag <= 0x34) || (tag == BcString || tag == BcStringChunk)
-}
-
 func isBuildInType(typeStr string) bool {
 	switch typeStr {
-	case ArrayString:
-		return true
-	case ArrayInt:
-		return true
-	case ArrayFloat:
-		return true
-	case ArrayDouble:
-		return true
-	case ArrayBool:
-		return true
-	case ArrayLong:
+	case ArrayString, ArrayInt, ArrayFloat, ArrayDouble, ArrayBool, ArrayLong:
 		return true
 	default:
 		return false
 	}
 }
 
-func buildKey(key reflect.Value, typ reflect.Type) interface{} {
-	switch typ.Kind() {
-	case reflect.String:
-		return key.String()
-	case reflect.Bool:
-		return key.Bool()
-	case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int, reflect.Uint16:
-		return int32(key.Int())
-	case reflect.Int64:
-		return key.Int()
-	case reflect.Uint8:
-		return byte(key.Uint())
-	case reflect.Uint, reflect.Uint32, reflect.Uint64:
-		return int64(key.Uint())
-	default:
-		return key.Interface()
+func getTag(reader io.Reader, flag int32) (byte, error) {
+	if flag != TagRead {
+		return byte(flag), nil
 	}
-	return newCodecError("unsupported key kind " + typ.Kind().String())
+	return readTag(reader)
+}
+
+func readTag(reader io.Reader) (byte, error) {
+	bf := make([]byte, 1)
+	_, err := reader.Read(bf)
+	if err != nil {
+		return 0, err
+	}
+	return bf[0], nil
 }

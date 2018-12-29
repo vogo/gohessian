@@ -29,7 +29,6 @@ const (
 	TagRead = int32(-1)
 
 	AsciiGap  = 32
-	ChunkSize = 4096
 
 	BcDate       = byte(0x4a) // 64-bit millisecond UTC date
 	BcDateMinute = byte(0x4b) // 32-bit minute UTC date

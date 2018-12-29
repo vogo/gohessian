@@ -115,49 +115,16 @@ func (d *Decoder) ReadObjectWithType(typ reflect.Type, name string) (interface{}
 	return d.ReadObject()
 }
 
-func (d *Decoder) readInt(flag int32) (interface{}, error) {
+func (d *Decoder) readBinary(flag int32) ([]byte, error) {
+	return decodeBinaryTag(d.reader, flag)
+}
+
+func (d *Decoder) readInt(flag int32) (int32, error) {
 	return decodeIntTag(d.reader, flag)
 }
 
-func (d *Decoder) readLong(flag int32) (interface{}, error) {
-	var tag byte
-	if flag != TagRead {
-		tag = byte(flag)
-	} else {
-		tag, _ = d.readBufByte()
-	}
-
-	switch {
-	case tag >= 0xd8 && tag <= 0xef:
-		return int64(tag - BcLongZero), nil
-	case tag >= 0xf4 && tag <= 0xff:
-
-		bf := make([]byte, 1)
-		if _, err := io.ReadFull(d.reader, bf); err != nil {
-			return nil, newCodecError("short integer", err)
-		}
-		i := int64(tag-BcLongByteZero)<<8 + int64(bf[0])
-		return i, nil
-	case tag >= 0x38 && tag <= 0x3f:
-		bf := make([]byte, 2)
-		if _, err := io.ReadFull(d.reader, bf); err != nil {
-			return nil, newCodecError("short integer", err)
-		}
-
-		i := int64(tag-BcLongShortZero)<<16 + int64(bf[1])<<8 + int64(bf[0])
-		return i, nil
-	case tag == BcLong:
-		buf := make([]byte, 8)
-		if _, err := io.ReadFull(d.reader, buf); err != nil {
-			return nil, newCodecError("parse long", err)
-		}
-		i := int64(buf[0])<<56 + int64(buf[1])<<48 + int64(buf[2]) + int64(buf[3]) +
-			int64(buf[4])<<24 + int64(buf[5])<<16 + int64(buf[6])<<8 + int64(buf[7])
-		return i, nil
-	default:
-		return nil, newCodecError("long wrong tag " + string(tag))
-	}
-
+func (d *Decoder) readLong(flag int32) (int64, error) {
+	return decodeLongTag(d.reader, flag)
 }
 
 func (d *Decoder) readDouble(flag int32) (interface{}, error) {
@@ -182,7 +149,7 @@ func (d *Decoder) readDouble(flag int32) (interface{}, error) {
 		return float64(int(bf[0])*256 + int(bf[1])), nil
 	case BcDoubleMill:
 		i, _ := d.readInt(TagRead)
-		return float64(i.(int32)), nil
+		return float64(i), nil
 	case BcDouble:
 		buf, _ := d.readBuf(8)
 		bits := binary.BigEndian.Uint64(buf)
@@ -322,27 +289,27 @@ func (d *Decoder) readInstance(typ reflect.Type, cls ClassDef) (interface{}, err
 			if err != nil {
 				return nil, newCodecError("decode int error "+fldName, err)
 			}
-			v := int64(i.(int32))
+			v := int64(i)
 			fldValue.SetInt(v)
 		case reflect.Uint8, reflect.Uint16:
 			i, err := d.readInt(TagRead)
 			if err != nil {
 				return nil, newCodecError("decode int error "+fldName, err)
 			}
-			v := uint64(i.(int32))
+			v := uint64(i)
 			fldValue.SetUint(v)
 		case reflect.Int64:
 			i, err := d.readLong(TagRead)
 			if err != nil {
 				return nil, newCodecError("decode long error "+fldName, err)
 			}
-			fldValue.SetInt(i.(int64))
+			fldValue.SetInt(i)
 		case reflect.Uint64, reflect.Uint, reflect.Uint32:
 			i, err := d.readLong(TagRead)
 			if err != nil {
 				return nil, newCodecError("decode long error "+fldName, err)
 			}
-			fldValue.SetUint(uint64(i.(int64)))
+			fldValue.SetUint(uint64(i))
 		case reflect.Bool:
 			b, err := d.ReadObject()
 			if err != nil {
@@ -372,22 +339,9 @@ func (d *Decoder) readInstance(typ reflect.Type, cls ClassDef) (interface{}, err
 				}
 				return nil, newCodecError("decode error "+fldName, err)
 			}
-			v := reflect.ValueOf(m)
-			if m != nil && v.Len() > 0 {
-				elemPtrType := fldValue.Type().Elem().Kind() == reflect.Ptr
-				sl := reflect.MakeSlice(fldValue.Type(), v.Len(), v.Len())
-				for i := 0; i < v.Len(); i++ {
-					item := v.Index(i).Interface()
-					itemValue := reflect.ValueOf(item)
-					if cv, ok := itemValue.Interface().(reflect.Value); ok {
-						itemValue = cv
-					}
-					if !elemPtrType && itemValue.Kind() == reflect.Ptr {
-						itemValue = itemValue.Elem()
-					}
-					sl.Index(i).Set(itemValue)
-				}
-				fldValue.Set(sl)
+			err = SetSlice(fldValue, m)
+			if err != nil {
+				return nil, err
 			}
 		}
 	}
@@ -433,7 +387,7 @@ func (d *Decoder) readSlice(value reflect.Value) (interface{}, error) {
 		if err != nil {
 			return nil, newCodecError("ReadType", err)
 		}
-		i = int(ii.(int32))
+		i = int(ii)
 	}
 	ary := reflect.MakeSlice(value.Type(), i, i)
 	for j := 0; j < i; j++ {
@@ -495,7 +449,7 @@ func (d *Decoder) readType() (string, error) {
 	if err != nil {
 		return "", newCodecError("reading tag", err)
 	}
-	index := int(i.(int32))
+	index := int(i)
 	return d.typList[index], nil
 
 }
@@ -584,7 +538,6 @@ func (d *Decoder) ReadObject() (interface{}, error) {
 		return true, nil
 	case tag == BcFalse:
 		return false, nil
-		//direct integer
 	case tag == BcMap:
 		return d.ReadTypedMap()
 	case tag == BcMapUntyped:
@@ -601,11 +554,11 @@ func (d *Decoder) ReadObject() (interface{}, error) {
 		return d.ReadObject()
 	case tag == BcObject:
 		i, _ := d.readInt(TagRead)
-		idx := int(i.(int32))
+		idx := int(i)
 		clsD := d.clsDefList[idx]
 		typ, ok := d.typMap[clsD.FullClassName]
 		if !ok {
-			return nil, newCodecError("undefine type for "+clsD.FullClassName, err)
+			return nil, newCodecError("undefined type for "+clsD.FullClassName, err)
 		}
 		return UnpackValue(d.readInstance(typ, clsD))
 	case (tag >= 0x80 && tag <= 0xbf) || (tag >= 0xc0 && tag <= 0xcf) ||
@@ -652,7 +605,7 @@ func (d *Decoder) ReadObject() (interface{}, error) {
 		return nil, newCodecError("date minute decode not yet implemented")
 	case strTag(tag):
 		return d.readString(int32(tag))
-	case (tag >= 0x60 && tag <= 0x6f):
+	case tag >= 0x60 && tag <= 0x6f:
 		i := int(tag - 0x60)
 		clsD := d.clsDefList[i]
 		typ, ok := d.typMap[clsD.FullClassName]
@@ -660,7 +613,7 @@ func (d *Decoder) ReadObject() (interface{}, error) {
 			return nil, newCodecError("undefined type for "+clsD.FullClassName, err)
 		}
 		return UnpackValue(d.readInstance(typ, clsD))
-	case (tag == BcBinary || tag == BcBinaryChunk) || (tag >= 0x20 && tag <= 0x2f):
+	case binaryTag(tag):
 		return d.readBinary(int32(tag))
 	case (tag >= BcListDirect && tag <= 0x77) || (tag == BcListFixed || tag == BcListVariable):
 		styp, err := d.readType()
@@ -675,7 +628,7 @@ func (d *Decoder) ReadObject() (interface{}, error) {
 			if err != nil {
 				return nil, newCodecError("ReadType", err)
 			}
-			i = int(ii.(int32))
+			i = int(ii)
 		}
 		isBuildInType(styp)
 
@@ -711,7 +664,7 @@ func (d *Decoder) ReadObject() (interface{}, error) {
 			if err != nil {
 				return nil, newCodecError("ReadType", err)
 			}
-			i = int(ii.(int32))
+			i = int(ii)
 		}
 		ary := make([]interface{}, i)
 		for j := 0; j < i; j++ {
@@ -735,101 +688,18 @@ func (d *Decoder) ReadObject() (interface{}, error) {
 	}
 }
 
-func (d *Decoder) readBinary(flag int32) (interface{}, error) {
-	var tag byte
-	if flag != TagRead {
-		tag = byte(flag)
-	} else {
-		tag, _ = d.readBufByte()
-	}
-	last := true
-	var len int32
-	if (tag >= BcBinaryDirect && tag <= IntDirectMax) || (tag == BcBinary || tag == BcBinaryChunk) {
-		if tag == BcBinaryChunk {
-			last = false
-		} else {
-			last = true
-		}
-		l, err := d.getBinLen(tag)
-		if err != nil {
-			return nil, newCodecError("getStrLen", err)
-		}
-		len = int32(l)
-		data := make([]byte, len)
-		for i := 0; ; {
-			if int32(i) == len {
-				if last {
-					return string(data), nil
-				}
-
-				buf := make([]byte, 1)
-				_, err := io.ReadFull(d.reader, buf)
-
-				if err != nil {
-					return nil, newCodecError("byte1 integer", err)
-				}
-				b := buf[0]
-				switch {
-				case b == BcBinaryChunk || b == BcBinary:
-					if b == BcBinaryChunk {
-						last = false
-					} else {
-						last = true
-					}
-					l, err := d.getStrLen(b)
-					if err != nil {
-						return nil, newCodecError("getStrLen", err)
-					}
-					len += l
-					bs := make([]byte, 0, len)
-					copy(bs, data)
-					data = bs
-				default:
-					return nil, newCodecError("tag error ", err)
-				}
-			} else {
-				buf := make([]byte, 1)
-				_, err := io.ReadFull(d.reader, buf)
-
-				if err != nil {
-					return nil, newCodecError("byte2 integer", err)
-				}
-				data[i] = buf[0]
-				i++
-			}
-		}
-		// return data, nil
-	} else {
-		return nil, newCodecError("byte3 integer")
-	}
-
-}
-
-func (d *Decoder) getBinLen(tag byte) (int, error) {
-	if tag >= BcBinaryDirect && tag <= IntDirectMax {
-		return int(tag - BcBinaryDirect), nil
-	}
-	bs := make([]byte, 2)
-	_, err := io.ReadFull(d.reader, bs)
-	if err != nil {
-		return 0, newCodecError("parse binary", err)
-	}
-	//return int(bs[0]<<8 + bs[1]), nil
-	return int(bs[0])<<8 + int(bs[1]), nil
-}
-
 func (d *Decoder) readClassDef() (interface{}, error) {
 	clsName, err := d.readString(TagRead)
 	if err != nil {
 		return nil, newCodecError("ReadClassDef", err)
 	}
-	n, err := d.readInt(TagRead)
+	count, err := d.readInt(TagRead)
 	if err != nil {
 		return nil, newCodecError("ReadClassDef", err)
 	}
-	no, _ := n.(int32)
-	fields := make([]string, no)
-	for i := 0; i < int(no); i++ {
+
+	fields := make([]string, count)
+	for i := 0; i < int(count); i++ {
 		s, err := d.readString(TagRead)
 		if err != nil {
 			return nil, newCodecError("ReadClassDef", err)

@@ -13,6 +13,7 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
+// ----------------------------
 // see: http://hessian.caucho.com/doc/hessian-serialization.html##int
 //
 // int ::= 'I' b3 b2 b1 b0
@@ -91,16 +92,9 @@ func decodeInt(reader io.Reader) (int32, error) {
 }
 
 func decodeIntTag(reader io.Reader, flag int32) (int32, error) {
-	var tag byte
-	if flag == TagRead {
-		bf := make([]byte, 1)
-		_, err := reader.Read(bf)
-		if err != nil {
-			return 0, err
-		}
-		tag = bf[0]
-	} else {
-		tag = byte(flag)
+	tag, err := getTag(reader, flag)
+	if err != nil {
+		return 0, err
 	}
 
 	if tag >= 0x80 && tag <= 0xbf {

@@ -16,6 +16,7 @@
 package hessian
 
 import (
+	"fmt"
 	"reflect"
 )
 
@@ -59,5 +60,119 @@ func UnpackValue(in interface{}, err error) (interface{}, error) {
 		return v.Interface(), nil
 	}
 	return in, nil
+}
 
+func IsRawKind(k reflect.Kind) bool {
+	switch k {
+	case reflect.Struct, reflect.Interface, reflect.Map, reflect.Array, reflect.Slice, reflect.Ptr:
+		return false
+	default:
+		return true
+	}
+}
+
+func IntKind(k reflect.Kind) bool {
+	switch k {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return true
+	default:
+		return false
+	}
+}
+
+func UintKind(k reflect.Kind) bool {
+	switch k {
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return true
+	default:
+		return false
+	}
+}
+
+func FloatKind(k reflect.Kind) bool {
+	switch k {
+	case reflect.Float32, reflect.Float64:
+		return true
+	default:
+		return false
+	}
+}
+
+func EnsureFloat64(i interface{}) float64 {
+	if i64, ok := i.(float64); ok {
+		return i64
+	}
+	if i32, ok := i.(float32); ok {
+		return float64(i32)
+	}
+	panic(fmt.Errorf("can't convert to float64: %v, type:%v", i, reflect.TypeOf(i)))
+}
+
+func EnsureInt64(i interface{}) int64 {
+	if i64, ok := i.(int64); ok {
+		return i64
+	}
+	if i32, ok := i.(int32); ok {
+		return int64(i32)
+	}
+	panic(fmt.Errorf("can't convert to int64: %v, type:%v", i, reflect.TypeOf(i)))
+}
+
+func EnsureUint64(i interface{}) uint64 {
+	if i64, ok := i.(uint64); ok {
+		return i64
+	}
+	if i64, ok := i.(int64); ok {
+		return uint64(i64)
+	}
+	if i32, ok := i.(int32); ok {
+		return uint64(i32)
+	}
+	if i32, ok := i.(uint32); ok {
+		return uint64(i32)
+	}
+	panic(fmt.Errorf("can't convert to uint64: %v, type:%v", i, reflect.TypeOf(i)))
+}
+
+
+func SetSlice(value reflect.Value, objects interface{}) error {
+	v := reflect.ValueOf(objects)
+	elemKind := value.Type().Elem().Kind()
+	if objects == nil && v.Len() <= 0 {
+		return nil
+	}
+	if elemKind == reflect.Uint8 {
+		// for binary
+		value.Set(v)
+		return nil
+	}
+	elemPtrType := elemKind == reflect.Ptr
+	elemFloatType := FloatKind(elemKind)
+	elemIntType := IntKind(elemKind)
+	elemUintType := UintKind(elemKind)
+
+	sl := reflect.MakeSlice(value.Type(), v.Len(), v.Len())
+	for i := 0; i < v.Len(); i++ {
+		item := v.Index(i).Interface()
+		itemValue := reflect.ValueOf(item)
+		if cv, ok := itemValue.Interface().(reflect.Value); ok {
+			itemValue = cv
+		}
+		if !elemPtrType && itemValue.Kind() == reflect.Ptr {
+			itemValue = itemValue.Elem()
+		}
+
+		if elemFloatType {
+			sl.Index(i).SetFloat(EnsureFloat64(itemValue.Interface()))
+		} else if elemIntType {
+			sl.Index(i).SetInt(EnsureInt64(itemValue.Interface()))
+		} else if elemUintType {
+			sl.Index(i).SetUint(EnsureUint64(itemValue.Interface()))
+		} else {
+			sl.Index(i).Set(itemValue)
+		}
+	}
+
+	value.Set(sl)
+	return nil
 }

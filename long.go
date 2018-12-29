@@ -13,6 +13,9 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
+// ----------------------------
+// see: http://hessian.caucho.com/doc/hessian-serialization.html##long
+//
 // Long Grammar
 //
 // long ::= L b7 b6 b5 b4 b3 b2 b1 b0
@@ -108,9 +111,9 @@ func encodeLong(value int64) []byte {
 	// 8 octet longs
 	return []byte{
 		'L',
-		byte(value >> 64),
 		byte(value >> 56),
 		byte(value >> 48),
+		byte(value >> 40),
 		byte(value >> 32),
 		byte(value >> 24),
 		byte(value >> 16),
@@ -123,16 +126,9 @@ func decodeLong(reader io.Reader) (int64, error) {
 }
 
 func decodeLongTag(reader io.Reader, flag int32) (int64, error) {
-	var tag byte
-	if flag == TagRead {
-		bf := make([]byte, 1)
-		_, err := reader.Read(bf)
-		if err != nil {
-			return 0, err
-		}
-		tag = bf[0]
-	} else {
-		tag = byte(flag)
+	tag, err := getTag(reader, flag)
+	if err != nil {
+		return 0, err
 	}
 
 	// 1 octet longs

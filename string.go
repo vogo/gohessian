@@ -28,6 +28,10 @@ const (
 	StringShortMax  = 0x3ff
 )
 
+func strTag(tag byte) bool {
+	return (tag >= BcStringDirect && tag <= StringDirectMax) || (tag >= 0x30 && tag <= 0x34) || (tag == BcString || tag == BcStringChunk)
+}
+
 // see: http://hessian.caucho.com/doc/hessian-serialization.html##string
 func encodeString(value string) []byte {
 	bytesBuf := bytes.NewBuffer(nil)

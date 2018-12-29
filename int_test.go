@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"github.com/stretchr/testify/assert"
+	"math"
 	"testing"
 	"unsafe"
 )
@@ -43,6 +44,9 @@ func TestInt(t *testing.T) {
 	IntTest(t, -462144, 5)
 	IntTest(t, 362143, 5)
 	IntTest(t, 462143, 5)
+
+	IntTest(t, math.MinInt32, 5)
+	IntTest(t, math.MaxInt32, 5)
 }
 
 func IntTest(t *testing.T, i32 int32, length int) {

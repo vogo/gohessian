@@ -18,9 +18,11 @@ package hessian
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -44,20 +46,6 @@ type BB struct {
 	Mp     map[int32]string
 	Pst    P
 	Number int32
-}
-type NumS struct {
-	V   int
-	V8  int8
-	V16 int16
-	V32 int32
-	V64 int64
-	U   uint
-	U8  uint8
-	U16 uint16
-	U32 uint32
-	U64 uint64
-	F32 float32
-	F64 float64
 }
 
 func TestIntConvert(t *testing.T) {
@@ -110,20 +98,50 @@ func TestSerializer(t *testing.T) {
 
 }
 
-func TestEncodeDecodeNum(t *testing.T) {
+type NumS struct {
+	V    int
+	V8   int8
+	V16  int16
+	V32  int32
+	V64  int64
+	U    uint
+	U8   uint8
+	U16  uint16
+	U32  uint32
+	U64  uint64
+	F32  float32
+	F64  float64
+	S1   string
+	Sa   []string
+	Ba   []byte
+	F32a []float32
+	Va   []int
+	Ua   []uint
+}
+
+func TestEncodeDecode(t *testing.T) {
+	bf := make([]byte, 32)
+	rand.Read(bf)
+
 	s := NumS{
-		V:   1,
-		V8:  -2,
-		V16: 99,
-		V32: -99,
-		V64: 5,
-		U:   6,
-		U8:  7,
-		U16: 8,
-		U32: 9,
-		U64: 10,
-		F32: 12345.6789,
-		F64: -654321.987654,
+		V:    1,
+		V8:   -2,
+		V16:  99,
+		V32:  -999,
+		V64:  math.MaxInt64,
+		U:    6,
+		U8:   7,
+		U16:  8,
+		U32:  9,
+		U64:  10,
+		F32:  12345.6789,
+		F64:  -654321.987654,
+		S1:   "HELLO",
+		Sa:   []string{"hello", "world"},
+		Ba:   bf,
+		F32a: []float32{13.14, 520.52},
+		Va:   []int{1024, 2048},
+		Ua:   []uint{4096, 10240},
 	}
 
 	t.Log("num struct encode:", s)

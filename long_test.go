@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"github.com/stretchr/testify/assert"
+	"math"
 	"testing"
 	"unsafe"
 )
@@ -48,6 +49,9 @@ func TestLong(t *testing.T) {
 	LongTest(t, -4621447777, 9)
 	LongTest(t, 3621437777, 9)
 	LongTest(t, 4621437777, 9)
+
+	LongTest(t, math.MinInt64, 9)
+	LongTest(t, math.MaxInt64, 9)
 }
 
 func LongTest(t *testing.T, i64 int64, length int) {

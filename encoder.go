@@ -175,6 +175,10 @@ func (e *Encoder) writeMap(data interface{}) (int, error) {
 
 // see: http://hessian.caucho.com/doc/hessian-serialization.html##list
 func (e *Encoder) writeList(data interface{}) (int, error) {
+	if bt, ok := data.([]byte); ok {
+		return e.writeBinary(bt)
+	}
+
 	vv := reflect.ValueOf(data)
 	e.writeBT(BcListFixedUntyped)
 	e.writeInt(int32(vv.Len()))
@@ -208,7 +212,7 @@ func (e *Encoder) writeBoolean(value bool) (int, error) {
 	return e.writer.Write(encodeBoolean(value))
 }
 
-func (e *Encoder) writeBytes(value []byte) (int, error) {
+func (e *Encoder) writeBinary(value []byte) (int, error) {
 	return e.writer.Write(encodeBinary(value))
 }
 
