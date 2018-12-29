@@ -1,20 +1,18 @@
-/*
- *
- *  * Copyright 2012-2016 Viant.
- *  *
- *  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- *  * use this file except in compliance with the License. You may obtain a copy of
- *  * the License at
- *  *
- *  * http://www.apache.org/licenses/LICENSE-2.0
- *  *
- *  * Unless required by applicable law or agreed to in writing, software
- *  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- *  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- *  * License for the specific language governing permissions and limitations under
- *  * the License.
- *
- */
+// Copyright 2012-2016 Viant.
+// Update by wongoo
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not
+// use this file except in compliance with the License. You may obtain a copy of
+// the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
+//
 
 package hessian
 
@@ -47,7 +45,7 @@ type BB struct {
 	Pst    P
 	Number int32
 }
-type IntS struct {
+type NumS struct {
 	V   int
 	V8  int8
 	V16 int16
@@ -58,13 +56,15 @@ type IntS struct {
 	U16 uint16
 	U32 uint32
 	U64 uint64
+	F32 float32
+	F64 float64
 }
 
 func TestIntConvert(t *testing.T) {
 	var V int = 1
 	var V8 int8 = 8
-	var V16 int16 = 16
-	var V32 int32 = 32
+	var V16 int16 = 999
+	var V32 int32 = -999
 	var V64 int64 = 64
 	var U uint = 128
 	var U8 uint8 = 9
@@ -110,33 +110,37 @@ func TestSerializer(t *testing.T) {
 
 }
 
-func TestEncodeDecodeInt(t *testing.T) {
-	s := IntS{
+func TestEncodeDecodeNum(t *testing.T) {
+	s := NumS{
 		V:   1,
-		V8:  2,
-		V16: 3,
-		V32: 4,
+		V8:  -2,
+		V16: 99,
+		V32: -99,
 		V64: 5,
 		U:   6,
 		U8:  7,
 		U16: 8,
 		U32: 9,
 		U64: 10,
+		F32: 12345.6789,
+		F64: -654321.987654,
 	}
 
+	t.Log("num struct encode:", s)
 	bytes, err := Encode(s)
 	if err != nil {
 		t.Error("encode int struct error:", err)
 		return
 	}
-	t.Log("int struct:", string(bytes))
-	t.Log("int struct HEX:", hex.EncodeToString(bytes))
+	t.Log("num struct bytes:", string(bytes))
+	t.Log("num struct HEX:", hex.EncodeToString(bytes))
 
 	s1, err := Decode(bytes, reflect.TypeOf(s))
 	if err != nil {
 		t.Error("decode int struct error:", err)
 		return
 	}
+	t.Log("num struct decode:", s1)
 	assert.True(t, reflect.DeepEqual(&s, s1))
 }
 

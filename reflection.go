@@ -50,14 +50,14 @@ func FetchTypeMap(typ reflect.Type, typMap map[string]reflect.Type) {
 	}
 }
 
-//EnsureObject unpack reflect.Value
-func EnsureObject (in interface{}, err error) (interface{},error){
-	if err!=nil{
-		return in,err
+//UnpackValue unpack reflect.Value
+func UnpackValue(in interface{}, err error) (interface{}, error) {
+	if err != nil {
+		return in, err
 	}
-	if v,ok:=in.(reflect.Value);ok{
-		return v.Interface(),nil
+	if v, ok := in.(reflect.Value); ok {
+		return v.Interface(), nil
 	}
-	return in,nil
+	return in, nil
 
 }

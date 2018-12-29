@@ -17,23 +17,36 @@ package hessian
 
 import "reflect"
 
+func lowerName(name string) (string, error) {
+	if name[0] >= 'a' && name[0] <= 'c' {
+		return name, nil
+	}
+	if name[0] >= 'A' && name[0] <= 'Z' {
+		bs := make([]byte, len(name))
+		bs[0] = byte(name[0] + AsciiGap)
+		copy(bs[1:], name[1:])
+		return string(bs), nil
+	}
+	return name, nil
+}
+
 func strTag(tag byte) bool {
-	return (tag >= BC_STRING_DIRECT && tag <= STRING_DIRECT_MAX) || (tag >= 0x30 && tag <= 0x34) || (tag == BC_STRING || tag == BC_STRING_CHUNK)
+	return (tag >= BcStringDirect && tag <= StringDirectMax) || (tag >= 0x30 && tag <= 0x34) || (tag == BcString || tag == BcStringChunk)
 }
 
 func isBuildInType(typeStr string) bool {
 	switch typeStr {
-	case ARRAY_STRING:
+	case ArrayString:
 		return true
-	case ARRAY_INT:
+	case ArrayInt:
 		return true
-	case ARRAY_FLOAT:
+	case ArrayFloat:
 		return true
-	case ARRAY_DOUBLE:
+	case ArrayDouble:
 		return true
-	case ARRAY_BOOL:
+	case ArrayBool:
 		return true
-	case ARRAY_LONG:
+	case ArrayLong:
 		return true
 	default:
 		return false

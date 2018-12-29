@@ -96,7 +96,6 @@ func TestHessianEncodeDecode(t *testing.T) {
 		t.Error(err)
 		t.Fail()
 	}
-	t.Log(string(bt))
 
 	t.Log(base64.StdEncoding.EncodeToString(bt))
 

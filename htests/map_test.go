@@ -30,6 +30,7 @@ import (
 type TConfig struct {
 	Enable bool
 	Msg    string
+	Flag   int
 }
 
 //JavaClassName java class name
@@ -98,7 +99,7 @@ func EncodeTConfigMap(cfg TConfigMap) ([]byte, error) {
 	return hessian.ToBytes(cfg, tHessianNameMap)
 }
 
-func TestMap(t *testing.T) {
+func TestUntypedMap(t *testing.T) {
 	m := make(map[interface{}]interface{})
 	m["test"] = "test"
 	m["test2"] = 1
@@ -128,8 +129,8 @@ func TestMap(t *testing.T) {
 
 func TestTEncodeDecode(t *testing.T) {
 	tMap := make(TConfigMap)
-	tMap["200101"] = &TConfig{Enable: true, Msg: "test1"}
-	tMap["200102"] = &TConfig{Enable: true, Msg: "test2"}
+	tMap["200101"] = &TConfig{Enable: true, Msg: "test1", Flag: 999}
+	tMap["200102"] = &TConfig{Enable: false, Msg: "test2", Flag: -999}
 
 	bytes, err := EncodeTConfigMap(tMap)
 	if err != nil {
@@ -149,9 +150,13 @@ func TestTEncodeDecode(t *testing.T) {
 
 	c1, ok := cfg["200101"]
 	assert.True(t, ok)
+	assert.Equal(t, true, c1.Enable)
 	assert.Equal(t, "test1", c1.Msg)
+	assert.Equal(t, 999, c1.Flag)
 
 	c2, ok := cfg["200102"]
 	assert.True(t, ok)
+	assert.Equal(t, false, c2.Enable)
 	assert.Equal(t, "test2", c2.Msg)
+	assert.Equal(t, -999, c2.Flag)
 }

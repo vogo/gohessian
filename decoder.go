@@ -116,46 +116,12 @@ func (d *Decoder) ReadObjectWithType(typ reflect.Type, name string) (interface{}
 }
 
 func (d *Decoder) readInt(flag int32) (interface{}, error) {
-	var tag byte
-	if flag != TAG_READ {
-		tag = byte(flag)
-	} else {
-		tag, _ = d.readBufByte()
-	}
-
-	switch {
-	//direct integer
-	case tag >= 0x80 && tag <= 0xbf:
-		return int32(tag - BC_INT_ZERO), nil
-	case tag >= 0xc0 && tag <= 0xcf:
-		bf := make([]byte, 1)
-		if _, err := io.ReadFull(d.reader, bf); err != nil {
-			return nil, newCodecError("short integer", err)
-		}
-		return int32(tag-BC_INT_BYTE_ZERO)<<8 + int32(bf[0]), nil
-	case tag >= 0xd0 && tag <= 0xd7:
-		bf := make([]byte, 2)
-		if _, err := io.ReadFull(d.reader, bf); err != nil {
-			return nil, newCodecError("short integer", err)
-		}
-		i := int32(tag-BC_INT_SHORT_ZERO)<<16 + int32(bf[1])<<8 + int32(bf[0])
-		return i, nil
-	case tag == BC_INT:
-		buf := make([]byte, 4)
-		if _, err := io.ReadFull(d.reader, buf); err != nil {
-			return nil, newCodecError("parse int", err)
-		}
-		i := int32(buf[0])<<24 + int32(buf[1])<<16 + int32(buf[2])<<8 + int32(buf[3])
-		return i, nil
-	default:
-		return nil, newCodecError("integer wrong tag ", tag)
-
-	}
+	return decodeIntTag(d.reader, flag)
 }
 
 func (d *Decoder) readLong(flag int32) (interface{}, error) {
 	var tag byte
-	if flag != TAG_READ {
+	if flag != TagRead {
 		tag = byte(flag)
 	} else {
 		tag, _ = d.readBufByte()
@@ -163,14 +129,14 @@ func (d *Decoder) readLong(flag int32) (interface{}, error) {
 
 	switch {
 	case tag >= 0xd8 && tag <= 0xef:
-		return int64(tag - BC_LONG_ZERO), nil
+		return int64(tag - BcLongZero), nil
 	case tag >= 0xf4 && tag <= 0xff:
 
 		bf := make([]byte, 1)
 		if _, err := io.ReadFull(d.reader, bf); err != nil {
 			return nil, newCodecError("short integer", err)
 		}
-		i := int64(tag-BC_LONG_BYTE_ZERO)<<8 + int64(bf[0])
+		i := int64(tag-BcLongByteZero)<<8 + int64(bf[0])
 		return i, nil
 	case tag >= 0x38 && tag <= 0x3f:
 		bf := make([]byte, 2)
@@ -178,9 +144,9 @@ func (d *Decoder) readLong(flag int32) (interface{}, error) {
 			return nil, newCodecError("short integer", err)
 		}
 
-		i := int64(tag-BC_LONG_SHORT_ZERO)<<16 + int64(bf[1])<<8 + int64(bf[0])
+		i := int64(tag-BcLongShortZero)<<16 + int64(bf[1])<<8 + int64(bf[0])
 		return i, nil
-	case tag == BC_LONG:
+	case tag == BcLong:
 		buf := make([]byte, 8)
 		if _, err := io.ReadFull(d.reader, buf); err != nil {
 			return nil, newCodecError("parse long", err)
@@ -196,28 +162,28 @@ func (d *Decoder) readLong(flag int32) (interface{}, error) {
 
 func (d *Decoder) readDouble(flag int32) (interface{}, error) {
 	var tag byte
-	if flag != TAG_READ {
+	if flag != TagRead {
 		tag = byte(flag)
 	} else {
 		tag, _ = d.readBufByte()
 	}
 	switch tag {
-	case BC_LONG_INT:
-		return d.readInt(TAG_READ)
-	case BC_DOUBLE_ZERO:
+	case BcLongInt:
+		return d.readInt(TagRead)
+	case BcDoubleZero:
 		return float64(0), nil
-	case BC_DOUBLE_ONE:
+	case BcDoubleOne:
 		return float64(1), nil
-	case BC_DOUBLE_BYTE:
+	case BcDoubleByte:
 		bt, _ := d.readBufByte()
 		return float64(bt), nil
-	case BC_DOUBLE_SHORT:
+	case BcDoubleShort:
 		bf, _ := d.readBuf(2)
 		return float64(int(bf[0])*256 + int(bf[1])), nil
-	case BC_DOUBLE_MILL:
-		i, _ := d.readInt(TAG_READ)
+	case BcDoubleMill:
+		i, _ := d.readInt(TagRead)
 		return float64(i.(int32)), nil
-	case BC_DOUBLE:
+	case BcDouble:
 		buf, _ := d.readBuf(8)
 		bits := binary.BigEndian.Uint64(buf)
 		datum := math.Float64frombits(bits)
@@ -228,19 +194,19 @@ func (d *Decoder) readDouble(flag int32) (interface{}, error) {
 
 func (d *Decoder) readString(flag int32) (string, error) {
 	var tag byte
-	if flag != TAG_READ {
+	if flag != TagRead {
 		tag = byte(flag)
 	} else {
 		tag, _ = d.readBufByte()
 	}
 	last := true
 
-	if tag == BC_NULL || !strTag(tag) {
+	if tag == BcNull || !strTag(tag) {
 		// null string will not match
 		return "", nil
 	}
 
-	if tag == BC_STRING_CHUNK {
+	if tag == BcStringChunk {
 		last = false
 	} else {
 		last = true
@@ -267,8 +233,8 @@ func (d *Decoder) readString(flag int32) (string, error) {
 			}
 			b := buf[0]
 			switch {
-			case b == BC_STRING_CHUNK || b == BC_STRING:
-				if b == BC_STRING_CHUNK {
+			case b == BcStringChunk || b == BcString:
+				if b == BcStringChunk {
 					last = false
 				} else {
 					last = true
@@ -300,7 +266,7 @@ func (d *Decoder) readString(flag int32) (string, error) {
 
 func (d *Decoder) getStrLen(tag byte) (int32, error) {
 	switch {
-	case tag >= BC_STRING_DIRECT && tag <= STRING_DIRECT_MAX:
+	case tag >= BcStringDirect && tag <= StringDirectMax:
 		return int32(tag - 0x00), nil
 	case tag >= 0x30 && tag <= 0x34:
 		buf := make([]byte, 1)
@@ -311,7 +277,7 @@ func (d *Decoder) getStrLen(tag byte) (int32, error) {
 		len := int32(tag-0x30)<<8 + int32(buf[0])
 		return len, nil
 
-	case tag == BC_STRING_CHUNK || tag == BC_STRING:
+	case tag == BcStringChunk || tag == BcString:
 		buf := make([]byte, 1)
 		_, err := io.ReadFull(d.reader, buf)
 		if err != nil {
@@ -344,7 +310,7 @@ func (d *Decoder) readInstance(typ reflect.Type, cls ClassDef) (interface{}, err
 		kind := fldValue.Kind()
 		switch kind {
 		case reflect.String:
-			str, err := d.readString(TAG_READ)
+			str, err := d.readString(TagRead)
 			if err != nil {
 				return nil, newCodecError("ReadString "+fldName, err)
 			}
@@ -352,27 +318,27 @@ func (d *Decoder) readInstance(typ reflect.Type, cls ClassDef) (interface{}, err
 				fldValue.SetString(str)
 			}
 		case reflect.Int32, reflect.Int, reflect.Int16, reflect.Int8:
-			i, err := d.readInt(TAG_READ)
+			i, err := d.readInt(TagRead)
 			if err != nil {
 				return nil, newCodecError("decode int error "+fldName, err)
 			}
 			v := int64(i.(int32))
 			fldValue.SetInt(v)
 		case reflect.Uint8, reflect.Uint16:
-			i, err := d.readInt(TAG_READ)
+			i, err := d.readInt(TagRead)
 			if err != nil {
 				return nil, newCodecError("decode int error "+fldName, err)
 			}
 			v := uint64(i.(int32))
 			fldValue.SetUint(v)
 		case reflect.Int64:
-			i, err := d.readLong(TAG_READ)
+			i, err := d.readLong(TagRead)
 			if err != nil {
 				return nil, newCodecError("decode long error "+fldName, err)
 			}
 			fldValue.SetInt(i.(int64))
 		case reflect.Uint64, reflect.Uint, reflect.Uint32:
-			i, err := d.readLong(TAG_READ)
+			i, err := d.readLong(TagRead)
 			if err != nil {
 				return nil, newCodecError("decode long error "+fldName, err)
 			}
@@ -384,7 +350,7 @@ func (d *Decoder) readInstance(typ reflect.Type, cls ClassDef) (interface{}, err
 			}
 			fldValue.SetBool(b.(bool))
 		case reflect.Float32, reflect.Float64:
-			d, err := d.readDouble(TAG_READ)
+			d, err := d.readDouble(TagRead)
 			if err != nil {
 				return nil, newCodecError("decode float error "+fldName, err)
 			}
@@ -431,9 +397,9 @@ func (d *Decoder) readInstance(typ reflect.Type, cls ClassDef) (interface{}, err
 // http://hessian.caucho.com/doc/hessian-serialization.html#anchor27
 func (d *Decoder) readMap(value reflect.Value) error {
 	tag, _ := d.readBufByte()
-	if tag == BC_MAP {
-		d.readString(TAG_READ)
-	} else if tag == BC_MAP_UNTYPED {
+	if tag == BcMap {
+		d.readString(TagRead)
+	} else if tag == BcMapUntyped {
 		//do nothing
 	} else {
 		return newCodecError("wrong header BC_MAP_UNTYPED")
@@ -460,10 +426,10 @@ func (d *Decoder) readMap(value reflect.Value) error {
 func (d *Decoder) readSlice(value reflect.Value) (interface{}, error) {
 	tag, _ := d.readBufByte()
 	var i int
-	if tag >= BC_LIST_DIRECT_UNTYPED && tag <= 0x7f {
-		i = int(tag - BC_LIST_DIRECT_UNTYPED)
+	if tag >= BcListDirectUntyped && tag <= 0x7f {
+		i = int(tag - BcListDirectUntyped)
 	} else {
-		ii, err := d.readInt(TAG_READ)
+		ii, err := d.readInt(TagRead)
 		if err != nil {
 			return nil, newCodecError("ReadType", err)
 		}
@@ -488,7 +454,7 @@ func capitalizeName(name string) string {
 	}
 	if name[0] >= 'a' && name[0] <= 'z' {
 		bs := make([]byte, len(name))
-		bs[0] = byte(name[0] - ASCII_GAP)
+		bs[0] = byte(name[0] - AsciiGap)
 		copy(bs[1:], name[1:])
 		return string(bs)
 	}
@@ -525,7 +491,7 @@ func (d *Decoder) readType() (string, error) {
 		d.typList = append(d.typList, t)
 		return t, nil
 	}
-	i, err := d.readInt(TAG_READ)
+	i, err := d.readInt(TagRead)
 	if err != nil {
 		return "", newCodecError("reading tag", err)
 	}
@@ -610,20 +576,20 @@ func (d *Decoder) ReadObject() (interface{}, error) {
 		return nil, nil //ignore
 	}
 	switch {
-	case tag == BC_END:
+	case tag == BcEnd:
 		return nil, io.EOF
-	case tag == BC_NULL:
+	case tag == BcNull:
 		return nil, nil
-	case tag == BC_TRUE:
+	case tag == BcTrue:
 		return true, nil
-	case tag == BC_FALSE:
+	case tag == BcFalse:
 		return false, nil
 		//direct integer
-	case tag == BC_MAP:
+	case tag == BcMap:
 		return d.ReadTypedMap()
-	case tag == BC_MAP_UNTYPED:
+	case tag == BcMapUntyped:
 		return d.ReadUntypedMap()
-	case tag == BC_OBJECT_DEF:
+	case tag == BcObjectDef:
 		clsDef, err := d.readClassDef()
 		if err != nil {
 			return nil, newCodecError("byte double", err)
@@ -633,56 +599,56 @@ func (d *Decoder) ReadObject() (interface{}, error) {
 		d.clsDefList = append(d.clsDefList, clsD)
 		//read from refList of ClassDef
 		return d.ReadObject()
-	case tag == BC_OBJECT:
-		i, _ := d.readInt(TAG_READ)
+	case tag == BcObject:
+		i, _ := d.readInt(TagRead)
 		idx := int(i.(int32))
 		clsD := d.clsDefList[idx]
 		typ, ok := d.typMap[clsD.FullClassName]
 		if !ok {
 			return nil, newCodecError("undefine type for "+clsD.FullClassName, err)
 		}
-		return EnsureObject(d.readInstance(typ, clsD))
+		return UnpackValue(d.readInstance(typ, clsD))
 	case (tag >= 0x80 && tag <= 0xbf) || (tag >= 0xc0 && tag <= 0xcf) ||
-		(tag >= 0xd0 && tag <= 0xd7) || (tag == BC_INT):
+		(tag >= 0xd0 && tag <= 0xd7) || (tag == BcInt):
 		return d.readInt(int32(tag))
 
 	case (tag >= 0xd8 && tag <= 0xef) || (tag >= 0xf4 && tag <= 0xff) ||
-		(tag >= 0x38 && tag <= 0x3f) || (tag == BC_LONG_INT) ||
-		(tag == BC_LONG):
+		(tag >= 0x38 && tag <= 0x3f) || (tag == BcLongInt) ||
+		(tag == BcLong):
 		return d.readLong(int32(tag))
-	case tag == BC_DOUBLE_ZERO:
+	case tag == BcDoubleZero:
 		return float64(0), nil
-	case tag == BC_DOUBLE_ONE:
+	case tag == BcDoubleOne:
 		return float64(1), nil
-	case tag == BC_DOUBLE_BYTE:
+	case tag == BcDoubleByte:
 		bf1 := make([]byte, 1)
 		if _, err := io.ReadFull(d.reader, bf1); err != nil {
 			return nil, newCodecError("byte double", err)
 		}
 		i := float64(bf1[0])
 		return i, nil
-	case tag == BC_DOUBLE_SHORT:
+	case tag == BcDoubleShort:
 		bf1 := make([]byte, 2)
 		if _, err := io.ReadFull(d.reader, bf1); err != nil {
 			return nil, newCodecError("short long", err)
 		}
 		i := float64(bf1[0])*256 + float64(bf1[0])
 		return i, nil
-	case tag == BC_DOUBLE_MILL:
+	case tag == BcDoubleMill:
 		t, err := d.readInt(int32(tag))
 		if err == nil {
 			return t, err
 		}
 		return nil, newCodecError("double mill", err)
-	case tag == BC_DOUBLE:
+	case tag == BcDouble:
 		return d.readDouble(int32(tag))
-	case tag == BC_DATE:
+	case tag == BcDate:
 		_, err := d.readLong(int32(tag))
 		if err != nil {
 			return nil, newCodecError("date", err)
 		}
 		return nil, newCodecError("date decode not yet implemented")
-	case tag == BC_DATE_MINUTE:
+	case tag == BcDateMinute:
 		return nil, newCodecError("date minute decode not yet implemented")
 	case strTag(tag):
 		return d.readString(int32(tag))
@@ -693,19 +659,19 @@ func (d *Decoder) ReadObject() (interface{}, error) {
 		if !ok {
 			return nil, newCodecError("undefined type for "+clsD.FullClassName, err)
 		}
-		return EnsureObject(d.readInstance(typ, clsD))
-	case (tag == BC_BINARY || tag == BC_BINARY_CHUNK) || (tag >= 0x20 && tag <= 0x2f):
+		return UnpackValue(d.readInstance(typ, clsD))
+	case (tag == BcBinary || tag == BcBinaryChunk) || (tag >= 0x20 && tag <= 0x2f):
 		return d.readBinary(int32(tag))
-	case (tag >= BC_LIST_DIRECT && tag <= 0x77) || (tag == BC_LIST_FIXED || tag == BC_LIST_VARIABLE):
+	case (tag >= BcListDirect && tag <= 0x77) || (tag == BcListFixed || tag == BcListVariable):
 		styp, err := d.readType()
 		if err != nil {
 			return nil, newCodecError("ReadType", err)
 		}
 		var i int
-		if tag >= BC_LIST_DIRECT && tag <= 0x77 {
-			i = int(tag - BC_LIST_DIRECT)
+		if tag >= BcListDirect && tag <= 0x77 {
+			i = int(tag - BcListDirect)
 		} else {
-			ii, err := d.readInt(TAG_READ)
+			ii, err := d.readInt(TagRead)
 			if err != nil {
 				return nil, newCodecError("ReadType", err)
 			}
@@ -736,12 +702,12 @@ func (d *Decoder) ReadObject() (interface{}, error) {
 		}
 
 		return aryValue.Interface(), nil
-	case (tag >= BC_LIST_DIRECT_UNTYPED && tag <= 0x7f) || (tag == BC_LIST_FIXED_UNTYPED || tag == BC_LIST_VARIABLE_UNTYPED):
+	case (tag >= BcListDirectUntyped && tag <= 0x7f) || (tag == BcListFixedUntyped || tag == BcListVariableUntyped):
 		var i int
-		if tag >= BC_LIST_DIRECT_UNTYPED && tag <= 0x7f {
-			i = int(tag - BC_LIST_DIRECT_UNTYPED)
+		if tag >= BcListDirectUntyped && tag <= 0x7f {
+			i = int(tag - BcListDirectUntyped)
 		} else {
-			ii, err := d.readInt(TAG_READ)
+			ii, err := d.readInt(TagRead)
 			if err != nil {
 				return nil, newCodecError("ReadType", err)
 			}
@@ -759,7 +725,7 @@ func (d *Decoder) ReadObject() (interface{}, error) {
 			ary[j] = it
 		}
 
-		if tag == BC_LIST_VARIABLE_UNTYPED {
+		if tag == BcListVariableUntyped {
 			// read list end tag 'Z'
 			d.readBufByte()
 		}
@@ -771,15 +737,15 @@ func (d *Decoder) ReadObject() (interface{}, error) {
 
 func (d *Decoder) readBinary(flag int32) (interface{}, error) {
 	var tag byte
-	if flag != TAG_READ {
+	if flag != TagRead {
 		tag = byte(flag)
 	} else {
 		tag, _ = d.readBufByte()
 	}
 	last := true
 	var len int32
-	if (tag >= BC_BINARY_DIRECT && tag <= INT_DIRECT_MAX) || (tag == BC_BINARY || tag == BC_BINARY_CHUNK) {
-		if tag == BC_BINARY_CHUNK {
+	if (tag >= BcBinaryDirect && tag <= IntDirectMax) || (tag == BcBinary || tag == BcBinaryChunk) {
+		if tag == BcBinaryChunk {
 			last = false
 		} else {
 			last = true
@@ -804,8 +770,8 @@ func (d *Decoder) readBinary(flag int32) (interface{}, error) {
 				}
 				b := buf[0]
 				switch {
-				case b == BC_BINARY_CHUNK || b == BC_BINARY:
-					if b == BC_BINARY_CHUNK {
+				case b == BcBinaryChunk || b == BcBinary:
+					if b == BcBinaryChunk {
 						last = false
 					} else {
 						last = true
@@ -840,8 +806,8 @@ func (d *Decoder) readBinary(flag int32) (interface{}, error) {
 }
 
 func (d *Decoder) getBinLen(tag byte) (int, error) {
-	if tag >= BC_BINARY_DIRECT && tag <= INT_DIRECT_MAX {
-		return int(tag - BC_BINARY_DIRECT), nil
+	if tag >= BcBinaryDirect && tag <= IntDirectMax {
+		return int(tag - BcBinaryDirect), nil
 	}
 	bs := make([]byte, 2)
 	_, err := io.ReadFull(d.reader, bs)
@@ -853,18 +819,18 @@ func (d *Decoder) getBinLen(tag byte) (int, error) {
 }
 
 func (d *Decoder) readClassDef() (interface{}, error) {
-	clsName, err := d.readString(TAG_READ)
+	clsName, err := d.readString(TagRead)
 	if err != nil {
 		return nil, newCodecError("ReadClassDef", err)
 	}
-	n, err := d.readInt(TAG_READ)
+	n, err := d.readInt(TagRead)
 	if err != nil {
 		return nil, newCodecError("ReadClassDef", err)
 	}
 	no, _ := n.(int32)
 	fields := make([]string, no)
 	for i := 0; i < int(no); i++ {
-		s, err := d.readString(TAG_READ)
+		s, err := d.readString(TagRead)
 		if err != nil {
 			return nil, newCodecError("ReadClassDef", err)
 		}

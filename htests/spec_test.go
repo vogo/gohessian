@@ -35,12 +35,18 @@ import (
 // -------------------------------------
 func TestLong(t *testing.T) {
 	var l8 int64 = -8
-	var l15 int64 = -8
+	var l15 int64 = 15
 	var zero int64 = 0xe0
 
 	assert.True(t, byte(l8+zero) == 0xd8)
-	assert.True(t, byte(l15+zero) == 0xd8)
+	assert.True(t, byte(l15+zero) == 0xef)
+}
 
+func TestInt(t *testing.T) {
+	var l8 int64 = -8
+	var l15 int64 = 15
+	var zero int64 = 0xe0
 
-
+	assert.True(t, byte(l8+zero) == 0xd8)
+	assert.True(t, byte(l15+zero) == 0xef)
 }

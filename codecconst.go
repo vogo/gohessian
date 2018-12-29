@@ -26,129 +26,52 @@ const (
 )
 
 const (
-	TAG_READ        = int32(-1)
-	ASCII_GAP       = 32
-	CHUNK_SIZE      = 4096
-	BC_BINARY       = byte('B') // final chunk
-	BC_BINARY_CHUNK = byte('A') // non-final chunk
+	TagRead = int32(-1)
 
-	BC_BINARY_DIRECT  = byte(0x20) // 1-byte length binary
-	BINARY_DIRECT_MAX = byte(0x0f)
-	BC_BINARY_SHORT   = byte(0x34) // 2-byte length binary
-	BINARY_SHORT_MAX  = 0x3ff      // 0-1023 binary
+	AsciiGap  = 32
+	ChunkSize = 4096
 
-	BC_DATE        = byte(0x4a) // 64-bit millisecond UTC date
-	BC_DATE_MINUTE = byte(0x4b) // 32-bit minute UTC date
+	BcDate       = byte(0x4a) // 64-bit millisecond UTC date
+	BcDateMinute = byte(0x4b) // 32-bit minute UTC date
 
-	BC_DOUBLE = byte('D') // IEEE 64-bit double
+	BcEnd = byte('Z')
 
-	BC_DOUBLE_ZERO  = byte(0x5b)
-	BC_DOUBLE_ONE   = byte(0x5c)
-	BC_DOUBLE_BYTE  = byte(0x5d)
-	BC_DOUBLE_SHORT = byte(0x5e)
-	BC_DOUBLE_MILL  = byte(0x5f)
+	BcListVariable        = byte(0x55)
+	BcListFixed           = byte('V')
+	BcListVariableUntyped = byte(0x57)
+	BcListFixedUntyped    = byte(0x58)
 
-	BC_FALSE = byte('F') // boolean false
+	BcListDirect        = byte(0x70)
+	BcListDirectUntyped = byte(0x78)
+	ListDirectMax       = byte(0x7)
 
-	BC_INT = byte('I') // 32-bit int
+	BcMap        = byte('M')
+	BcMapUntyped = byte('H')
 
-	INT_DIRECT_MIN = -0x10
-	INT_DIRECT_MAX = byte(0x2f)
-	BC_INT_ZERO    = byte(0x90)
+	BcNull = byte('N')
 
-	INT_BYTE_MIN     = -0x800
-	INT_BYTE_MAX     = 0x7ff
-	BC_INT_BYTE_ZERO = byte(0xc8)
+	BcObject    = byte('O')
+	BcObjectDef = byte('C')
 
-	BC_END = byte('Z')
+	BcObjectDirect  = byte(0x60)
+	ObjectDirectMax = byte(0x0f)
 
-	INT_SHORT_MIN     = -0x40000
-	INT_SHORT_MAX     = 0x3ffff
-	BC_INT_SHORT_ZERO = byte(0xd4)
+	BcRef = byte(0x51)
 
-	BC_LIST_VARIABLE         = byte(0x55)
-	BC_LIST_FIXED            = byte('V')
-	BC_LIST_VARIABLE_UNTYPED = byte(0x57)
-	BC_LIST_FIXED_UNTYPED    = byte(0x58)
+	PPacketChunk = byte(0x4f)
+	PPacket      = byte('P')
 
-	BC_LIST_DIRECT         = byte(0x70)
-	BC_LIST_DIRECT_UNTYPED = byte(0x78)
-	LIST_DIRECT_MAX        = byte(0x7)
+	PPacketDirect   = byte(0x80)
+	PacketDirectMax = byte(0x7f)
 
-	BC_LONG         = byte('L') // 64-bit signed integer
-	LONG_DIRECT_MIN = -0x08
-	LONG_DIRECT_MAX = byte(0x0f)
-	BC_LONG_ZERO    = byte(0xe0)
-
-	LONG_BYTE_MIN     = -0x800
-	LONG_BYTE_MAX     = 0x7ff
-	BC_LONG_BYTE_ZERO = byte(0xf8)
-
-	LONG_SHORT_MIN     = -0x40000
-	LONG_SHORT_MAX     = 0x3ffff
-	BC_LONG_SHORT_ZERO = byte(0x3c)
-
-	BC_LONG_INT = byte(0x59)
-
-	BC_MAP         = byte('M')
-	BC_MAP_UNTYPED = byte('H')
-
-	BC_NULL = byte('N')
-
-	BC_OBJECT     = byte('O')
-	BC_OBJECT_DEF = byte('C')
-
-	BC_OBJECT_DIRECT  = byte(0x60)
-	OBJECT_DIRECT_MAX = byte(0x0f)
-
-	BC_REF = byte(0x51)
-
-	BC_STRING       = byte('S') // final string
-	BC_STRING_CHUNK = byte('R') // non-final string
-
-	BC_STRING_DIRECT  = byte(0x00)
-	STRING_DIRECT_MAX = byte(0x1f)
-	BC_STRING_SHORT   = byte(0x30)
-	STRING_SHORT_MAX  = 0x3ff
-
-	BC_TRUE = byte('T')
-
-	P_PACKET_CHUNK = byte(0x4f)
-	P_PACKET       = byte('P')
-
-	P_PACKET_DIRECT   = byte(0x80)
-	PACKET_DIRECT_MAX = byte(0x7f)
-
-	P_PACKET_SHORT   = byte(0x70)
-	PACKET_SHORT_MAX = 0xfff
-	ARRAY_STRING     = "[string"
-	ARRAY_INT        = "[int"
-	ARRAY_DOUBLE     = "[double"
-	ARRAY_FLOAT      = "[float"
-	ARRAY_BOOL       = "[boolean"
-	ARRAY_LONG       = "[long"
-)
-
-const (
-	Int32DirectMin      = int32(INT_DIRECT_MIN)
-	Int32DirectMax      = int32(INT_DIRECT_MAX)
-	Int32BcIntZero      = int32(BC_INT_ZERO)
-	Int32ByteMin        = int32(INT_BYTE_MIN)
-	Int32ByteMax        = int32(INT_BYTE_MAX)
-	Int32BcIntByteZero  = int32(BC_INT_BYTE_ZERO)
-	Int32ShortMin       = int32(INT_SHORT_MIN)
-	Int32ShortMax       = int32(INT_SHORT_MAX)
-	Int32BcIntShortZero = int32(BC_INT_SHORT_ZERO)
-
-	Int64LongDirectMin   = int64(LONG_DIRECT_MIN)
-	Int64LongDirectMax   = int64(LONG_DIRECT_MAX)
-	Int64BcLongZero      = int64(BC_LONG_ZERO)
-	Int64LongByteMin     = int64(LONG_BYTE_MIN)
-	Int64LongByteMax     = int64(LONG_BYTE_MAX)
-	Int64BcLongByteZero  = int64(BC_LONG_BYTE_ZERO)
-	Int64LongShortMin    = int64(LONG_SHORT_MIN)
-	Int64LongShortMax    = int64(LONG_SHORT_MAX)
-	Int64BcLongShortZero = int64(BC_LONG_SHORT_ZERO)
+	PPacketShort   = byte(0x70)
+	PacketShortMax = 0xfff
+	ArrayString    = "[string"
+	ArrayInt       = "[int"
+	ArrayDouble    = "[double"
+	ArrayFloat     = "[float"
+	ArrayBool      = "[boolean"
+	ArrayLong      = "[long"
 )
 
 var (
