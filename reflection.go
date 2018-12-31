@@ -16,8 +16,10 @@
 package hessian
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 //TypeMapFrom value
@@ -134,9 +136,12 @@ func EnsureUint64(i interface{}) uint64 {
 	panic(fmt.Errorf("can't convert to uint64: %v, type:%v", i, reflect.TypeOf(i)))
 }
 
-
 func SetSlice(value reflect.Value, objects interface{}) error {
 	v := reflect.ValueOf(objects)
+	k := v.Type().Kind()
+	if k != reflect.Slice && k != reflect.Array {
+		return fmt.Errorf("expect slice type, but get %v, value: %v", k, objects)
+	}
 	elemKind := value.Type().Elem().Kind()
 	if objects == nil && v.Len() <= 0 {
 		return nil
@@ -162,17 +167,32 @@ func SetSlice(value reflect.Value, objects interface{}) error {
 			itemValue = itemValue.Elem()
 		}
 
-		if elemFloatType {
+		switch {
+		case elemFloatType:
 			sl.Index(i).SetFloat(EnsureFloat64(itemValue.Interface()))
-		} else if elemIntType {
+		case elemIntType:
 			sl.Index(i).SetInt(EnsureInt64(itemValue.Interface()))
-		} else if elemUintType {
+		case elemUintType:
 			sl.Index(i).SetUint(EnsureUint64(itemValue.Interface()))
-		} else {
+		default:
 			sl.Index(i).Set(itemValue)
 		}
 	}
 
 	value.Set(sl)
 	return nil
+}
+
+func findField(name string, typ reflect.Type) (int, error) {
+	for i := 0; i < typ.NumField(); i++ {
+		str := typ.Field(i).Name
+		if strings.Compare(str, name) == 0 {
+			return i, nil
+		}
+		str1 := capitalizeName(name)
+		if strings.Compare(str, str1) == 0 {
+			return i, nil
+		}
+	}
+	return 0, errors.New("no field " + name)
 }

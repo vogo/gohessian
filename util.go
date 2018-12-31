@@ -20,7 +20,7 @@ import (
 )
 
 func lowerName(name string) (string, error) {
-	if name[0] >= 'a' && name[0] <= 'c' {
+	if name[0] >= 'a' && name[0] <= 'z' {
 		return name, nil
 	}
 	if name[0] >= 'A' && name[0] <= 'Z' {
@@ -30,6 +30,19 @@ func lowerName(name string) (string, error) {
 		return string(bs), nil
 	}
 	return name, nil
+}
+
+func capitalizeName(name string) string {
+	if name[0] >= 'A' && name[0] <= 'Z' {
+		return name
+	}
+	if name[0] >= 'a' && name[0] <= 'z' {
+		bs := make([]byte, len(name))
+		bs[0] = byte(name[0] - AsciiGap)
+		copy(bs[1:], name[1:])
+		return string(bs)
+	}
+	return name
 }
 
 func isBuildInType(typeStr string) bool {
@@ -49,10 +62,18 @@ func getTag(reader io.Reader, flag int32) (byte, error) {
 }
 
 func readTag(reader io.Reader) (byte, error) {
-	bf := make([]byte, 1)
-	_, err := reader.Read(bf)
+	bt, err := readBytes(reader, 1)
 	if err != nil {
 		return 0, err
 	}
-	return bf[0], nil
+	return bt[0], nil
+}
+
+func readBytes(reader io.Reader, length int) ([]byte, error) {
+	buf := make([]byte, length)
+	_, err := io.ReadFull(reader, buf)
+	if err != nil {
+		return nil, err
+	}
+	return buf, nil
 }

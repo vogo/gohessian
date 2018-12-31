@@ -15,18 +15,23 @@
 
 package hessian
 
-const (
-	BoolTrueTag  = byte('T')
-	BoolFalseTag = byte('F')
-)
-
-// see: http://hessian.caucho.com/doc/hessian-serialization.html##boolean
-func encodeBoolean(value bool) []byte {
-	buf := make([]byte, 1)
-	if value {
-		buf[0] = BoolTrueTag
-	} else {
-		buf[0] = BoolFalseTag
+func (d *Decoder) readType() (string, error) {
+	tag, err := readTag(d.reader)
+	if err != nil {
+		return "", newCodecError("reading tag", err)
 	}
-	return buf
+	if stringTag(tag) {
+		t, err := d.readString(int32(tag))
+		if err != nil {
+			return "", newCodecError("reading tag", err)
+		}
+		d.typList = append(d.typList, t)
+		return t, nil
+	}
+	i, err := d.readInt(TagRead)
+	if err != nil {
+		return "", newCodecError("reading tag", err)
+	}
+	index := int(i)
+	return d.typList[index], nil
 }

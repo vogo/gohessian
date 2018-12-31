@@ -57,7 +57,7 @@ func (gh *goHessian) ToObject(ins []byte) (interface{}, error) {
 func ToBytes(object interface{}, nameMap map[string]string) ([]byte, error) {
 	btBufs := bytes.NewBuffer(nil)
 	e := NewEncoder(btBufs, nameMap)
-	_, err := e.WriteObject(object)
+	_, err := e.WriteData(object)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func Encode(object interface{}) ([]byte, error) {
 func ToObject(ins []byte, typMap map[string]reflect.Type) (interface{}, error) {
 	btBufs := bytes.NewReader(ins)
 	d := NewDecoder(btBufs, typMap)
-	obj, err := d.ReadObject()
+	obj, err := d.ReadData()
 	if err != nil {
 		return nil, err
 	}

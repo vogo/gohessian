@@ -33,21 +33,31 @@ func TestBinaryLength(t *testing.T) {
 }
 
 func TestBinary(t *testing.T) {
-	binaryTest(t, ShortBinaryMaxLen)
-	binaryTest(t, ShortBinaryMaxLen-5)
-	binaryTest(t, ShortBinaryMaxLen+5)
+	binaryTest(t, nil)
+	binaryTest(t, []byte{})
 
-	binaryTest(t, BinaryChunkSize)
-	binaryTest(t, BinaryChunkSize*2)
-	binaryTest(t, BinaryChunkSize*3+123)
-	binaryTest(t, BinaryChunkSize*4+1234)
+	binaryLengthTest(t, BinaryShortTagMaxLen)
+	binaryLengthTest(t, BinaryShortTagMaxLen-5)
+	binaryLengthTest(t, BinaryShortTagMaxLen+5)
+
+	binaryLengthTest(t, BinaryChunkSize)
+	binaryLengthTest(t, BinaryChunkSize+BinaryShortTagMaxLen)
+	binaryLengthTest(t, BinaryChunkSize+BinaryShortTagMaxLen-5)
+	binaryLengthTest(t, BinaryChunkSize+BinaryShortTagMaxLen+5)
+	binaryLengthTest(t, BinaryChunkSize*2)
+	binaryLengthTest(t, BinaryChunkSize*3+123)
+	binaryLengthTest(t, BinaryChunkSize*4+1234)
 }
 
-func binaryTest(t *testing.T, length int) {
+func binaryLengthTest(t *testing.T, length int) {
 	buf := make([]byte, length)
 	_, err := rand.Read(buf)
 	assert.Nil(t, err)
 
+	binaryTest(t, buf)
+}
+
+func binaryTest(t *testing.T, buf []byte) {
 	encodeBt := encodeBinary(buf)
 	assert.NotNil(t, encodeBt)
 
@@ -55,5 +65,7 @@ func binaryTest(t *testing.T, length int) {
 	decodeBt, err := decodeBinary(reader)
 	assert.Nil(t, err)
 
-	assert.True(t, reflect.DeepEqual(buf, decodeBt))
+	if len(buf) > 0 {
+		assert.True(t, reflect.DeepEqual(buf, decodeBt))
+	}
 }

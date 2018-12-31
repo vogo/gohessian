@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io"
 	"reflect"
-	"strings"
 )
 
 //Encoder type
@@ -60,8 +59,8 @@ func (e *Encoder) Reset() {
 	e.clsDefList = make([]ClassDef, 0, 17)
 }
 
-//WriteObject write object
-func (e *Encoder) WriteObject(data interface{}) (int, error) {
+//WriteData write object
+func (e *Encoder) WriteData(data interface{}) (int, error) {
 	if data == nil {
 		io.WriteString(e.writer, "N")
 		return 1, nil
@@ -120,72 +119,9 @@ func (e *Encoder) WriteObject(data interface{}) (int, error) {
 		value := data.(bool)
 		return e.writeBoolean(value)
 	case reflect.Struct:
-		return e.writeInstance(data)
+		return e.writeObject(data)
 	}
 	return 0, fmt.Errorf("unsupported object:%v, kind:%v, type:%v", data, typ.Kind(), typ)
-}
-
-// see: http://hessian.caucho.com/doc/hessian-serialization.html##map
-func (e *Encoder) writeMap(data interface{}) (int, error) {
-	vv := reflect.ValueOf(data)
-	typ := vv.Type()
-
-	mapName, ok := e.nameMap[typ.Name()]
-	if ok {
-		e.writeBT(BcMap)
-		e.writeString(mapName)
-	} else {
-		e.writeBT(BcMapUntyped)
-	}
-
-	count := 0
-
-	if typ.Kind() == reflect.Map {
-		// -------> untyped map
-		keys := vv.MapKeys()
-		count = len(keys)
-		for i := 0; i < count; i++ {
-			k := keys[i]
-			_, err := e.WriteObject(k.Interface())
-			if err != nil {
-				return 0, err
-			}
-			_, err = e.WriteObject(vv.MapIndex(keys[i]).Interface())
-			if err != nil {
-				return 0, err
-			}
-		}
-	} else {
-		// -------> typed map
-		count = vv.NumField()
-		for i := 0; i < count; i++ {
-			f := vv.Field(i)
-			e.writeString(f.Type().Name())
-			_, err := e.WriteObject(f.Interface())
-			if err != nil {
-				return 0, err
-			}
-		}
-	}
-
-	e.writeBT(BcEnd)
-
-	return count, nil
-}
-
-// see: http://hessian.caucho.com/doc/hessian-serialization.html##list
-func (e *Encoder) writeList(data interface{}) (int, error) {
-	if bt, ok := data.([]byte); ok {
-		return e.writeBinary(bt)
-	}
-
-	vv := reflect.ValueOf(data)
-	e.writeBT(BcListFixedUntyped)
-	e.writeInt(int32(vv.Len()))
-	for i := 0; i < vv.Len(); i++ {
-		e.WriteObject(vv.Index(i).Interface())
-	}
-	return vv.Len(), nil
 }
 
 func (e *Encoder) writeString(value string) (int, error) {
@@ -218,58 +154,4 @@ func (e *Encoder) writeBinary(value []byte) (int, error) {
 
 func (e *Encoder) writeBT(bs ...byte) (int, error) {
 	return e.writer.Write(bs)
-}
-
-//see: http://hessian.caucho.com/doc/hessian-serialization.html##object
-func (e *Encoder) writeInstance(data interface{}) (int, error) {
-	typ := reflect.TypeOf(data)
-	vv := reflect.ValueOf(data)
-
-	clsName, ok := e.nameMap[typ.Name()]
-	if !ok {
-		clsName = typ.Name()
-		e.nameMap[clsName] = clsName
-	}
-	l, ok := e.existClassDef(clsName)
-	if !ok {
-		l, _ = e.writeClsDef(typ, clsName)
-	}
-	if byte(l) <= ObjectDirectMax {
-		e.writeBT(byte(l) + BcObjectDirect)
-	} else {
-		e.writeBT(BcObject)
-		e.writeInt(int32(l))
-	}
-	for i := 0; i < vv.NumField(); i++ {
-		_, err := e.WriteObject(vv.Field(i).Interface())
-		if err != nil {
-			return 0, err
-		}
-	}
-	return vv.NumField(), nil
-}
-
-func (e *Encoder) writeClsDef(typ reflect.Type, clsName string) (int, error) {
-	e.writeBT(BcObjectDef)
-	e.writeString(clsName)
-	fldList := make([]string, typ.NumField())
-	e.writeInt(int32(len(fldList)))
-	for i := 0; i < len(fldList); i++ {
-		str, _ := lowerName(typ.Field(i).Name)
-		fldList[i] = str
-		e.writeString(fldList[i])
-	}
-	clsDef := ClassDef{clsName, fldList}
-	l := len(e.clsDefList)
-	e.clsDefList = append(e.clsDefList, clsDef)
-	return l, nil
-}
-
-func (e *Encoder) existClassDef(clsName string) (int, bool) {
-	for i := 0; i < len(e.clsDefList); i++ {
-		if strings.Compare(clsName, e.clsDefList[i].FullClassName) == 0 {
-			return i, true
-		}
-	}
-	return 0, false
 }

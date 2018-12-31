@@ -25,24 +25,40 @@ import (
 )
 
 func TestInt(t *testing.T) {
+	IntTest(t, -17, 2)
 	IntTest(t, -16, 1)
+	IntTest(t, -15, 1)
 	IntTest(t, -11, 1)
+	IntTest(t, 46, 1)
 	IntTest(t, 47, 1)
+	IntTest(t, 48, 2)
 	IntTest(t, 21, 1)
 
+	IntTest(t, -2047, 2)
 	IntTest(t, -2048, 2)
+	IntTest(t, -2049, 3)
 	IntTest(t, -1025, 2)
+	IntTest(t, 2046, 2)
 	IntTest(t, 2047, 2)
+	IntTest(t, 2048, 3)
 	IntTest(t, 1023, 2)
 
+	IntTest(t, -262143, 3)
 	IntTest(t, -262144, 3)
+	IntTest(t, -262145, 5)
 	IntTest(t, -162144, 3)
+	IntTest(t, 262142, 3)
 	IntTest(t, 262143, 3)
+	IntTest(t, 262144, 5)
 	IntTest(t, 162143, 3)
 
+	IntTest(t, -362143, 5)
 	IntTest(t, -362144, 5)
+	IntTest(t, -362145, 5)
 	IntTest(t, -462144, 5)
+	IntTest(t, 362142, 5)
 	IntTest(t, 362143, 5)
+	IntTest(t, 362144, 5)
 	IntTest(t, 462143, 5)
 
 	IntTest(t, math.MinInt32, 5)
@@ -51,7 +67,7 @@ func TestInt(t *testing.T) {
 
 func IntTest(t *testing.T, i32 int32, length int) {
 	t.Log("--------------")
-	t.Logf("i32: %d , %x", i32, i32)
+	//t.Logf("i32: %d , %x", i32, i32)
 
 	u32 := *(*uint32)(unsafe.Pointer(&i32))
 	tb := make([]byte, 4)
@@ -65,7 +81,7 @@ func IntTest(t *testing.T, i32 int32, length int) {
 	reader := bytes.NewReader(bt)
 	d32, err := decodeInt(reader)
 	assert.Nil(t, err)
-	t.Logf("d32: %d , %x", d32, d32)
+	//t.Logf("d32: %d , %x", d32, d32)
 
 	assert.Equal(t, i32, d32)
 }

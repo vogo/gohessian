@@ -49,38 +49,57 @@ import (
 )
 
 const (
-	BcInt = byte('I') // 32-bit int
+	Int1ByteTagMin    = 0x80
+	Int1ByteTagMax    = 0xbf
+	Int1ByteZero      = byte(0x90)
+	Int1ByteZeroInt32 = int32(Int1ByteZero)
+	Int1ByteValueMin  = int32(-16)
+	Int1ByteValueMax  = int32(47)
 
-	IntDirectMax   = byte(47)
-	BcIntZero      = byte(0x90)
-	BcIntByteZero  = byte(0xc8)
-	BcIntShortZero = byte(0xd4)
+	Int2ByteTagMin    = 0xc0
+	Int2ByteTagMax    = 0xcf
+	Int2ByteZero      = byte(0xc8)
+	Int2ByteZeroInt32 = int32(Int2ByteZero)
+	Int2ByteValueMin  = int32(-2048)
+	Int2ByteValueMax  = int32(2047)
 
-	Int32BcIntZero      = int32(BcIntZero)
-	Int32BcIntByteZero  = int32(BcIntByteZero)
-	Int32BcIntShortZero = int32(BcIntShortZero)
+	Int3ByteTagMin    = 0xd0
+	Int3ByteTagMax    = 0xd7
+	Int3ByteZero      = byte(0xd4)
+	Int3ByteZeroInt32 = int32(Int3ByteZero)
+	Int3ByteValueMin  = int32(-262144)
+	Int3ByteValueMax  = int32(262143)
+
+	Int4ByteStartTag = byte('I')
 )
 
+func IntTag(tag byte) bool {
+	return (tag >= Int1ByteTagMin && tag <= Int1ByteTagMax) ||
+		(tag >= Int2ByteTagMin && tag <= Int2ByteTagMax) ||
+		(tag >= Int3ByteTagMin && tag <= Int3ByteTagMax) ||
+		(tag == Int4ByteStartTag)
+}
+
 func encodeInt(value int32) []byte {
-	if -16 <= value && value <= 47 {
-		return []byte{byte(Int32BcIntZero + value)}
+	if Int1ByteValueMin <= value && value <= Int1ByteValueMax {
+		return []byte{byte(Int1ByteZeroInt32 + value)}
 	}
 
-	if -2048 <= value && value <= 2047 {
+	if Int2ByteValueMin <= value && value <= Int2ByteValueMax {
 		return []byte{
-			byte(Int32BcIntByteZero + value>>8),
+			byte(Int2ByteZeroInt32 + value>>8),
 			byte(value)}
 	}
 
-	if -262144 <= value && value <= 262143 {
+	if Int3ByteValueMin <= value && value <= Int3ByteValueMax {
 		return []byte{
-			byte(Int32BcIntShortZero + value>>16),
+			byte(Int3ByteZeroInt32 + value>>16),
 			byte(value >> 8),
 			byte(value)}
 	}
 
 	return []byte{
-		BcInt,
+		Int4ByteStartTag,
 		byte(value >> 24),
 		byte(value >> 16),
 		byte(value >> 8),
@@ -88,38 +107,38 @@ func encodeInt(value int32) []byte {
 }
 
 func decodeInt(reader io.Reader) (int32, error) {
-	return decodeIntTag(reader, TagRead)
+	return decodeIntValue(reader, TagRead)
 }
 
-func decodeIntTag(reader io.Reader, flag int32) (int32, error) {
+func decodeIntValue(reader io.Reader, flag int32) (int32, error) {
 	tag, err := getTag(reader, flag)
 	if err != nil {
 		return 0, err
 	}
 
-	if tag >= 0x80 && tag <= 0xbf {
-		u8 := uint8(tag - BcIntZero)
+	if tag >= Int1ByteTagMin && tag <= Int1ByteTagMax {
+		u8 := uint8(tag - Int1ByteZero)
 		i8 := *(*int8)(unsafe.Pointer(&u8))
 		return int32(i8), nil
 	}
 
-	if tag >= 0xc0 && tag <= 0xcf {
-		bf := make([]byte, 1)
-		if _, err := io.ReadFull(reader, bf); err != nil {
+	if tag >= Int2ByteTagMin && tag <= Int2ByteTagMax {
+		bf, err := readBytes(reader, 1)
+		if err != nil {
 			return 0, err
 		}
-		by := []byte{byte(tag - BcIntByteZero), bf[0]}
+		by := []byte{byte(tag - Int2ByteZero), bf[0]}
 		u16 := binary.BigEndian.Uint16(by)
 		i16 := *(*int16)(unsafe.Pointer(&u16))
 		return int32(i16), nil
 	}
 
-	if tag >= 0xd0 && tag <= 0xd7 {
-		bf := make([]byte, 2)
-		if _, err := io.ReadFull(reader, bf); err != nil {
+	if tag >= Int3ByteTagMin && tag <= Int3ByteTagMax {
+		bf, err := readBytes(reader, 2)
+		if err != nil {
 			return 0, err
 		}
-		b := byte(tag - BcIntShortZero)
+		b := byte(tag - Int3ByteZero)
 		var fb byte
 		if b&0x08 > 0 {
 			fb = 0xFF
@@ -132,9 +151,9 @@ func decodeIntTag(reader io.Reader, flag int32) (int32, error) {
 		return i32, nil
 	}
 
-	if tag == BcInt {
-		buf := make([]byte, 4)
-		if _, err := io.ReadFull(reader, buf); err != nil {
+	if tag == Int4ByteStartTag {
+		buf, err := readBytes(reader, 4)
+		if err != nil {
 			return 0, err
 		}
 		by := []byte{buf[0], buf[1], buf[2], buf[3]}
@@ -144,5 +163,4 @@ func decodeIntTag(reader io.Reader, flag int32) (int32, error) {
 	}
 
 	return 0, fmt.Errorf("wrong int tag: %x", tag)
-
 }

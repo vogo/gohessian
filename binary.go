@@ -40,38 +40,31 @@ import (
 )
 
 const (
-	BinaryChunkSize    = 4096
-	BcBinaryFinalChunk = byte('B')  // final chunk
-	BcBinaryChunk      = byte('b')  // non-final chunk
-	ShortBinaryLenMin  = byte(0x20) // 1-byte length binary min
-	ShortBinaryLenMax  = byte(0x2f) // 1-byte length binary max
-	ShortBinaryMaxLen  = 15
+	BinaryChunkSize      = 4096
+	BinaryFinalChunk     = byte('B')  // final chunk
+	BinaryChunk          = byte('b')  // non-final chunk
+	BinaryShortLenTagMin = byte(0x20) // 1-byte length binary min
+	BinaryShortLenTagMax = byte(0x2f) // 1-byte length binary max
+	BinaryShortTagMaxLen = int(BinaryShortLenTagMax - BinaryShortLenTagMin)
 )
 
 var (
-	size                 = BinaryChunkSize
-	BinaryChunkSizeBytes = []byte{byte(size >> 8), byte(size)}
+	binChunkSize         = BinaryChunkSize
+	BinaryChunkSizeBytes = []byte{byte(binChunkSize >> 8), byte(binChunkSize)}
 )
 
 func encodeBinary(value []byte) []byte {
 	length := len(value)
 	if length == 0 {
-		return []byte{ShortBinaryLenMin}
+		return []byte{BinaryShortLenTagMin}
 	}
 
 	byteBuf := bytes.NewBuffer(nil)
 
-	// ----> short binary
-	if length <= ShortBinaryMaxLen {
-		byteBuf.WriteByte(byte(int(ShortBinaryLenMin) + length))
-		byteBuf.Write(value)
-		return byteBuf.Bytes()
-	}
-
 	// ----> chunk binary
 	begin := 0
 	for length > BinaryChunkSize {
-		byteBuf.WriteByte(BcBinaryChunk)
+		byteBuf.WriteByte(BinaryChunk)
 		byteBuf.Write(BinaryChunkSizeBytes)
 
 		byteBuf.Write(value[begin : begin+BinaryChunkSize])
@@ -80,43 +73,34 @@ func encodeBinary(value []byte) []byte {
 		begin += BinaryChunkSize
 	}
 
-	byteBuf.WriteByte(byte(BcBinaryFinalChunk))
+	// ----> short binary
+	if length <= BinaryShortTagMaxLen {
+		byteBuf.WriteByte(byte(int(BinaryShortLenTagMin) + length))
+		byteBuf.Write(value[begin:])
+		return byteBuf.Bytes()
+	}
+
+	// ----> final chunk binary
+	byteBuf.WriteByte(byte(BinaryFinalChunk))
 	byteBuf.WriteByte(byte(length >> 8))
 	byteBuf.WriteByte(byte(length))
 	byteBuf.Write(value[begin:])
-
 	return byteBuf.Bytes()
 }
 
 func decodeBinary(reader io.Reader) ([]byte, error) {
-	return decodeBinaryTag(reader, TagRead)
+	return decodeBinaryValue(reader, TagRead)
 }
 
-func decodeBinaryTag(reader io.Reader, flag int32) ([]byte, error) {
+func decodeBinaryValue(reader io.Reader, flag int32) ([]byte, error) {
 	tag, err := getTag(reader, flag)
 	if err != nil {
 		return nil, err
 	}
 
 	// ----> nil binary
-	if tag == ShortBinaryLenMin {
+	if tag == BinaryShortLenTagMin {
 		return nil, nil
-	}
-
-	// ----> short binary
-	if tag > ShortBinaryLenMin && tag <= ShortBinaryLenMax {
-		length := int(tag - ShortBinaryLenMin)
-		buf := make([]byte, length)
-		_, err := io.ReadFull(reader, buf)
-		if err != nil {
-			return nil, err
-		}
-		return buf, nil
-	}
-
-	// ----> chunk binary
-	if !binaryChunkTag(tag) {
-		return nil, fmt.Errorf("error binary tag: %x", tag)
 	}
 
 	length, err := getBinaryLen(reader, tag)
@@ -134,7 +118,7 @@ func decodeBinaryTag(reader io.Reader, flag int32) ([]byte, error) {
 		}
 		byteBuf.Write(buf[:read])
 
-		if tag == BcBinaryFinalChunk {
+		if binaryEndTag(tag) {
 			break
 		}
 
@@ -146,31 +130,44 @@ func decodeBinaryTag(reader io.Reader, flag int32) ([]byte, error) {
 			}
 			return nil, err
 		}
-		if !binaryChunkTag(tag) {
+		if !binaryTag(tag) {
 			return nil, fmt.Errorf("error binary tag: %x", tag)
 		}
 
-		length, err = getBinaryLen(reader, tag)
+		newLength, err := getBinaryLen(reader, tag)
 		if err != nil {
 			return nil, err
+		}
+		if newLength < length {
+			buf = buf[:newLength]
+			length = newLength
 		}
 	}
 
 	return byteBuf.Bytes(), nil
 }
 
-func binaryTag(tag byte) bool {
-	return (tag >= ShortBinaryLenMin && tag <= ShortBinaryLenMax) || (tag == BcBinaryFinalChunk || tag == BcBinaryChunk)
+func binaryShortTag(tag byte) bool {
+	return tag >= BinaryShortLenTagMin && tag <= BinaryShortLenTagMax
 }
 
 func binaryChunkTag(tag byte) bool {
-	return tag == BcBinaryFinalChunk || tag == BcBinaryChunk
+	return tag == BinaryFinalChunk || tag == BinaryChunk
+}
+
+func binaryEndTag(tag byte) bool {
+	return tag == BinaryFinalChunk || binaryShortTag(tag)
+}
+
+func binaryTag(tag byte) bool {
+	return binaryShortTag(tag) || binaryChunkTag(tag)
 }
 
 func getBinaryLen(reader io.Reader, tag byte) (int, error) {
-	if tag >= ShortBinaryLenMin && tag <= ShortBinaryLenMax {
-		return int(tag - ShortBinaryLenMin), nil
+	if binaryShortTag(tag) {
+		return int(tag - BinaryShortLenTagMin), nil
 	}
+
 	bs := make([]byte, 2)
 	_, err := io.ReadFull(reader, bs)
 	if err != nil {

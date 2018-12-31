@@ -169,14 +169,14 @@ func TestDecoder_Instance(t *testing.T) {
 	bb := BB{"AB", ts4, mp1, p, 4}
 	br := bytes.NewBuffer(nil)
 	e := NewEncoder(br, nil)
-	e.WriteObject(bb)
+	e.WriteData(bb)
 	t.Log("bytes:", br)
 
 	bt := bytes.NewReader(br.Bytes())
 	d := NewDecoder(bt, nil)
 	d.RegisterType("BB", reflect.TypeOf(BB{}))
 	d.RegisterType("P", reflect.TypeOf(P{}))
-	it, err := d.ReadObject()
+	it, err := d.ReadData()
 	if err != nil {
 		t.Error(err)
 	}
@@ -190,12 +190,12 @@ func TestEncoder_WriteObject(t *testing.T) {
 	mp2[3] = "test3"
 	br := bytes.NewBuffer(nil)
 	e7 := NewEncoder(br, nil)
-	e7.WriteObject(mp2)
+	e7.WriteData(mp2)
 	t.Log("encode map buf->", string(br.Bytes()), len(br.Bytes()), br.Bytes())
 	bt2 := br.Bytes()
 	br2 := bytes.NewReader(br.Bytes())
 	d7 := NewDecoder(br2, nil)
-	t7, err := d7.ReadObject()
+	t7, err := d7.ReadData()
 	if err != nil {
 		t.Error("read object error:", err)
 		return
@@ -208,7 +208,7 @@ func TestEncoder_WriteList(t *testing.T) {
 	ts3 := [3]string{"t1", "t2", "t3"}
 	br := bytes.NewBuffer(nil)
 	e7 := NewEncoder(br, nil)
-	_, err := e7.WriteObject(ts3)
+	_, err := e7.WriteData(ts3)
 	if err != nil {
 		t.Error("write object error:", err)
 		return
@@ -217,7 +217,7 @@ func TestEncoder_WriteList(t *testing.T) {
 	bt2 := br.Bytes()
 	br2 := bytes.NewReader(br.Bytes())
 	d7 := NewDecoder(br2, nil)
-	t7, err := d7.ReadObject()
+	t7, err := d7.ReadData()
 	if err != nil {
 		t.Error("read object error:", err)
 		return
@@ -230,7 +230,7 @@ func TestEncoder_WriteString(t *testing.T) {
 	str := "HessianSerializer"
 	br := bytes.NewBuffer(nil)
 	e7 := NewEncoder(br, nil)
-	_, err := e7.WriteObject(str)
+	_, err := e7.WriteData(str)
 	if err != nil {
 		t.Error("write object error:", err)
 		return
@@ -238,7 +238,7 @@ func TestEncoder_WriteString(t *testing.T) {
 	bt2 := br.Bytes()
 	br2 := bytes.NewReader(br.Bytes())
 	d7 := NewDecoder(br2, nil)
-	t7, err := d7.ReadObject()
+	t7, err := d7.ReadData()
 	if err != nil {
 		t.Error("read object error:", err)
 		return

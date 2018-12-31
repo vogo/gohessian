@@ -25,25 +25,45 @@ import (
 )
 
 func TestLong(t *testing.T) {
+	LongTest(t, -7, 1)
 	LongTest(t, -8, 1)
+	LongTest(t, -9, 2)
 	LongTest(t, -3, 1)
+	LongTest(t, 14, 1)
 	LongTest(t, 15, 1)
+	LongTest(t, 16, 2)
 	LongTest(t, 7, 1)
 
+	LongTest(t, -2047, 2)
 	LongTest(t, -2048, 2)
+	LongTest(t, -2049, 3)
 	LongTest(t, -1025, 2)
+	LongTest(t, 2046, 2)
 	LongTest(t, 2047, 2)
+	LongTest(t, 2048, 3)
 	LongTest(t, 1023, 2)
 
+	LongTest(t, -262143, 3)
 	LongTest(t, -262144, 3)
+	LongTest(t, -262145, 5)
 	LongTest(t, -162144, 3)
+	LongTest(t, 262142, 3)
 	LongTest(t, 262143, 3)
+	LongTest(t, 262144, 5)
 	LongTest(t, 162143, 3)
 
+	LongTest(t, -362143, 5)
 	LongTest(t, -362144, 5)
+	LongTest(t, -362145, 5)
 	LongTest(t, -462144, 5)
+	LongTest(t, 362142, 5)
 	LongTest(t, 362143, 5)
+	LongTest(t, 362144, 5)
 	LongTest(t, 462143, 5)
+	LongTest(t, math.MinInt32, 5)
+	LongTest(t, math.MaxInt32, 5)
+	LongTest(t, int64(math.MinInt32)-1, 9)
+	LongTest(t, int64(math.MaxInt32)+1, 9)
 
 	LongTest(t, -3621447777, 9)
 	LongTest(t, -4621447777, 9)
@@ -56,7 +76,7 @@ func TestLong(t *testing.T) {
 
 func LongTest(t *testing.T, i64 int64, length int) {
 	t.Log("--------------")
-	t.Logf("i64: %d , %x", i64, i64)
+	// t.Logf("i64: %d , %x", i64, i64)
 
 	u64 := *(*uint64)(unsafe.Pointer(&i64))
 	tb := make([]byte, 8)
@@ -70,7 +90,7 @@ func LongTest(t *testing.T, i64 int64, length int) {
 	reader := bytes.NewReader(bt)
 	d64, err := decodeLong(reader)
 	assert.Nil(t, err)
-	t.Logf("d64: %d , %x", d64, d64)
+	// t.Logf("d64: %d , %x", d64, d64)
 
 	assert.Equal(t, i64, d64)
 }
