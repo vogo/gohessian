@@ -1,4 +1,4 @@
-// Copyright 2018 luckin coffee.
+// Copyright 2018 vogo.
 // Author: wongoo
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -20,7 +20,7 @@ import (
 	"reflect"
 	"testing"
 
-	hessian "github.com/luckincoffee/gohessian"
+	hessian "github.com/vogo/gohessian"
 	"github.com/stretchr/testify/assert"
 )
 

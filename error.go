@@ -1,4 +1,4 @@
-// Copyright 2018 luckin coffee.
+// Copyright 2018 vogo.
 // Author: wongoo
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not

@@ -1,9 +1,8 @@
-github.com/cloudflare/cfssl v0.0.0-20181213083726-b94e044bb51e/go.mod h1:yMWuSON2oQp+43nFtAV/uvKQIFpSPerB57DCt9t8sSA=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/luckincoffee/logger v0.0.0-20181213095950-b37f24ab105c h1:aAZ9KBoJbM/mHZIGNTD6e9gPLTNVscDQkq9jSAefdzY=
-github.com/luckincoffee/logger v0.0.0-20181213095950-b37f24ab105c/go.mod h1:U0w+a6+elVoRthZ7c2v68LqWmfmFv/HDMcpAI8GL+X4=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/stretchr/testify v1.2.2 h1:bSDNvY7ZPG5RlJ8otE/7V6gMiyenm9RtJ7IUVIAoJ1w=
 github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXfy6kDkUVs=
+github.com/vogo/logger v0.0.0-20190103122524-67400cfdd9fe h1:NNIVqJkpXTdGZwIA/Kw89xpQhUEw2f5qrsY2IMarBGw=
+github.com/vogo/logger v0.0.0-20190103122524-67400cfdd9fe/go.mod h1:yNESICKlLwXzqGNsmPaq3CFAzFr1OxePm8GlIiqW7v0=
