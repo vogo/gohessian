@@ -266,15 +266,15 @@ func (d *Decoder) readObject(typ reflect.Type, cls ClassDef) (interface{}, error
 			return nil, newCodecError("CanSet false for " + fldName)
 		}
 
-		err = d.readFiled(fldName, fldValue)
+		err = d.readField(fldName, fldValue)
 		if err != nil {
-			return nil, newCodecError("failed to decode filed "+fldName, err)
+			return nil, newCodecError("failed to decode field "+fldName, err)
 		}
 	}
 	return vv, nil
 }
 
-func (d *Decoder) readFiled(fldName string, fldValue reflect.Value) error {
+func (d *Decoder) readField(fldName string, fldValue reflect.Value) error {
 	kind := fldValue.Kind()
 	switch kind {
 	case reflect.String:
@@ -344,7 +344,7 @@ func (d *Decoder) readFiled(fldName string, fldValue reflect.Value) error {
 			return err
 		}
 	default:
-		return fmt.Errorf("unsupported filed: %s, type: %v", fldName, fldValue.Type())
+		return fmt.Errorf("unsupported field: %s, type: %v", fldName, fldValue.Type())
 	}
 
 	return nil

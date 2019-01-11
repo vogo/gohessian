@@ -137,6 +137,10 @@ func EnsureUint64(i interface{}) uint64 {
 }
 
 func SetSlice(value reflect.Value, objects interface{}) error {
+	if objects == nil {
+		return nil
+	}
+
 	v := reflect.ValueOf(objects)
 	k := v.Type().Kind()
 	if k != reflect.Slice && k != reflect.Array {

@@ -149,6 +149,8 @@ func (d *Decoder) ReadList() (interface{}, error) {
 		return d.ReadTypedList(tag)
 	case untypedListTag(tag):
 		return d.ReadUntypedList(tag)
+	case tag == BcNull:
+		return nil, nil
 	default:
 		return nil, fmt.Errorf("expect list tag but get %x", tag)
 	}
