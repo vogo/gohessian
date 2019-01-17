@@ -47,10 +47,10 @@
 package hessian
 
 import (
+	"bufio"
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io"
 	"math"
 )
 
@@ -106,7 +106,7 @@ func DoubleTag(tag byte) bool {
 	}
 }
 
-func decodeDoubleValue(reader io.Reader, flag int32) (float64, error) {
+func decodeDoubleValue(reader *bufio.Reader, flag int32) (float64, error) {
 	tag, err := getTag(reader, flag)
 	if err != nil {
 		return 0, err

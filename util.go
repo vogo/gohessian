@@ -16,6 +16,7 @@
 package hessian
 
 import (
+	"bufio"
 	"io"
 )
 
@@ -54,14 +55,14 @@ func isBuildInType(typeStr string) bool {
 	}
 }
 
-func getTag(reader io.Reader, flag int32) (byte, error) {
+func getTag(reader *bufio.Reader, flag int32) (byte, error) {
 	if flag != TagRead {
 		return byte(flag), nil
 	}
 	return readTag(reader)
 }
 
-func readTag(reader io.Reader) (byte, error) {
+func readTag(reader *bufio.Reader) (byte, error) {
 	bt, err := readBytes(reader, 1)
 	if err != nil {
 		return 0, err
@@ -69,11 +70,23 @@ func readTag(reader io.Reader) (byte, error) {
 	return bt[0], nil
 }
 
-func readBytes(reader io.Reader, length int) ([]byte, error) {
+func readBytes(reader *bufio.Reader, length int) ([]byte, error) {
 	buf := make([]byte, length)
 	_, err := io.ReadFull(reader, buf)
 	if err != nil {
 		return nil, err
 	}
 	return buf, nil
+}
+
+func readRunes(reader io.RuneReader, buf []rune) (int, error) {
+	i := 0
+	for ; i < len(buf); i++ {
+		r, _, err := reader.ReadRune()
+		if err != nil {
+			return i, err
+		}
+		buf[i] = r
+	}
+	return i, nil
 }

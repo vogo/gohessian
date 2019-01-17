@@ -42,9 +42,9 @@
 package hessian
 
 import (
+	"bufio"
 	"encoding/binary"
 	"fmt"
-	"io"
 	"unsafe"
 )
 
@@ -106,11 +106,11 @@ func encodeInt(value int32) []byte {
 		byte(value)}
 }
 
-func decodeInt(reader io.Reader) (int32, error) {
+func decodeInt(reader *bufio.Reader) (int32, error) {
 	return decodeIntValue(reader, TagRead)
 }
 
-func decodeIntValue(reader io.Reader, flag int32) (int32, error) {
+func decodeIntValue(reader *bufio.Reader, flag int32) (int32, error) {
 	tag, err := getTag(reader, flag)
 	if err != nil {
 		return 0, err

@@ -17,6 +17,7 @@
 package hessian
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
@@ -172,7 +173,7 @@ func TestDecoder_Instance(t *testing.T) {
 	e.WriteData(bb)
 	t.Log("bytes:", br)
 
-	bt := bytes.NewReader(br.Bytes())
+	bt := bufio.NewReader(bytes.NewReader(br.Bytes()))
 	d := NewDecoder(bt, nil)
 	d.RegisterType("BB", reflect.TypeOf(BB{}))
 	d.RegisterType("P", reflect.TypeOf(P{}))
@@ -193,7 +194,7 @@ func TestEncoder_WriteObject(t *testing.T) {
 	e7.WriteData(mp2)
 	t.Log("encode map buf->", string(br.Bytes()), len(br.Bytes()), br.Bytes())
 	bt2 := br.Bytes()
-	br2 := bytes.NewReader(br.Bytes())
+	br2 := bufio.NewReader(bytes.NewReader(br.Bytes()))
 	d7 := NewDecoder(br2, nil)
 	t7, err := d7.ReadData()
 	if err != nil {
@@ -215,7 +216,7 @@ func TestEncoder_WriteList(t *testing.T) {
 	}
 	t.Log("encode array buf->", string(br.Bytes()), len(br.Bytes()), br.Bytes())
 	bt2 := br.Bytes()
-	br2 := bytes.NewReader(br.Bytes())
+	br2 := bufio.NewReader(bytes.NewReader(br.Bytes()))
 	d7 := NewDecoder(br2, nil)
 	t7, err := d7.ReadData()
 	if err != nil {
@@ -236,7 +237,7 @@ func TestEncoder_WriteString(t *testing.T) {
 		return
 	}
 	bt2 := br.Bytes()
-	br2 := bytes.NewReader(br.Bytes())
+	br2 := bufio.NewReader(bytes.NewReader(br.Bytes()))
 	d7 := NewDecoder(br2, nil)
 	t7, err := d7.ReadData()
 	if err != nil {

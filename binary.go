@@ -33,6 +33,7 @@
 package hessian
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -88,11 +89,11 @@ func encodeBinary(value []byte) []byte {
 	return byteBuf.Bytes()
 }
 
-func decodeBinary(reader io.Reader) ([]byte, error) {
+func decodeBinary(reader *bufio.Reader) ([]byte, error) {
 	return decodeBinaryValue(reader, TagRead)
 }
 
-func decodeBinaryValue(reader io.Reader, flag int32) ([]byte, error) {
+func decodeBinaryValue(reader *bufio.Reader, flag int32) ([]byte, error) {
 	tag, err := getTag(reader, flag)
 	if err != nil {
 		return nil, err
@@ -163,7 +164,7 @@ func binaryTag(tag byte) bool {
 	return binaryShortTag(tag) || binaryChunkTag(tag)
 }
 
-func getBinaryLen(reader io.Reader, tag byte) (int, error) {
+func getBinaryLen(reader *bufio.Reader, tag byte) (int, error) {
 	if binaryShortTag(tag) {
 		return int(tag - BinaryShortLenTagMin), nil
 	}

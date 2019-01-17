@@ -19,6 +19,7 @@
 package hessian
 
 import (
+	"bufio"
 	"bytes"
 	"reflect"
 )
@@ -73,8 +74,8 @@ func Encode(object interface{}) ([]byte, error) {
 
 //ToObject deserialize bytes to object
 func ToObject(ins []byte, typMap map[string]reflect.Type) (interface{}, error) {
-	btBufs := bytes.NewReader(ins)
-	d := NewDecoder(btBufs, typMap)
+	ioBuf := bufio.NewReader(bytes.NewReader(ins))
+	d := NewDecoder(ioBuf, typMap)
 	obj, err := d.ReadData()
 	if err != nil {
 		return nil, err

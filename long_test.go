@@ -16,6 +16,7 @@
 package hessian
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
 	"github.com/stretchr/testify/assert"
@@ -87,7 +88,7 @@ func LongTest(t *testing.T, i64 int64, length int) {
 	t.Logf(" bt: %x", bt)
 	assert.Equal(t, length, len(bt))
 
-	reader := bytes.NewReader(bt)
+	reader := bufio.NewReader(bytes.NewReader(bt))
 	d64, err := decodeLong(reader)
 	assert.Nil(t, err)
 	// t.Logf("d64: %d , %x", d64, d64)

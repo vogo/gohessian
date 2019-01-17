@@ -30,6 +30,7 @@
 package hessian
 
 import (
+	"bufio"
 	"bytes"
 	"io"
 	"reflect"
@@ -46,7 +47,7 @@ type ClassDef struct {
 
 //Decoder type
 type Decoder struct {
-	reader     io.Reader
+	reader     *bufio.Reader
 	typMap     map[string]reflect.Type
 	typList    []string
 	refList    []interface{}
@@ -54,7 +55,7 @@ type Decoder struct {
 }
 
 //NewDecoder new
-func NewDecoder(r io.Reader, typ map[string]reflect.Type) *Decoder {
+func NewDecoder(r *bufio.Reader, typ map[string]reflect.Type) *Decoder {
 	if typ == nil {
 		typ = make(map[string]reflect.Type, 17)
 	}

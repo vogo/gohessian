@@ -16,6 +16,7 @@
 package hessian
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/rand"
 	"github.com/stretchr/testify/assert"
@@ -61,7 +62,7 @@ func binaryTest(t *testing.T, buf []byte) {
 	encodeBt := encodeBinary(buf)
 	assert.NotNil(t, encodeBt)
 
-	reader := bytes.NewReader(encodeBt)
+	reader := bufio.NewReader(bytes.NewReader(encodeBt))
 	decodeBt, err := decodeBinary(reader)
 	assert.Nil(t, err)
 

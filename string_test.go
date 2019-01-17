@@ -16,9 +16,10 @@
 package hessian
 
 import (
+	"bufio"
 	"bytes"
-	"crypto/rand"
 	"github.com/stretchr/testify/assert"
+	"math/rand"
 	"reflect"
 	"testing"
 )
@@ -43,23 +44,39 @@ func TestString(t *testing.T) {
 	stringLengthTest(t, StringChunkSize+StringMiddleMaxLen-5)
 	stringLengthTest(t, StringChunkSize+StringMiddleMaxLen+5)
 }
+// Returns an int >= min, < max
+func randomInt(min, max int) int {
+	return min + rand.Intn(max-min)
+}
+
+// Generate a random string of A-Z chars with len = l
+func randomString(len int) string {
+	bytes := make([]byte, len)
+	for i := 0; i < len; i++ {
+		bytes[i] = byte(randomInt(65, 90))
+	}
+	return string(bytes)
+}
 
 func stringLengthTest(t *testing.T, length int) {
-	buf := make([]byte, length)
-	_, err := rand.Read(buf)
-	assert.Nil(t, err)
-	str := string(buf)
-
-	stringTest(t, str)
+	stringTest(t, randomString(length))
 }
 
 func stringTest(t *testing.T, str string) {
 	encodeString := encodeString(str)
 	assert.NotNil(t, encodeString)
 
-	reader := bytes.NewReader(encodeString)
+	reader := bufio.NewReader(bytes.NewReader(encodeString))
 	decodeString, err := decodeString(reader)
 	assert.Nil(t, err)
 
-	assert.True(t, reflect.DeepEqual(str, decodeString))
+	equal := reflect.DeepEqual(str, decodeString)
+	assert.True(t, equal)
+	if !equal {
+		t.Logf("expect: %s, got: %s", str, decodeString)
+	}
+}
+
+func TestRuneString(t *testing.T) {
+	stringTest(t, "hello world 你好世界...")
 }

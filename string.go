@@ -48,6 +48,7 @@
 package hessian
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -74,12 +75,13 @@ var (
 )
 
 func encodeString(value string) []byte {
-	dataBys := []byte(value)
-	length := len(dataBys)
-	if length == 0 {
+
+	if value == "" {
 		return []byte{BcNull}
 	}
 
+	dataBys := []rune(value)
+	length := len(dataBys)
 	byteBuf := bytes.NewBuffer(nil)
 
 	begin := 0
@@ -88,7 +90,7 @@ func encodeString(value string) []byte {
 		byteBuf.WriteByte(StringChunk)
 		byteBuf.Write(StringChunkSizeBytes)
 
-		byteBuf.Write(dataBys[begin : begin+StringChunkSize])
+		byteBuf.Write([]byte(string(dataBys[begin:begin+StringChunkSize])))
 
 		length -= StringChunkSize
 		begin += StringChunkSize
@@ -97,7 +99,7 @@ func encodeString(value string) []byte {
 	// ----> short string
 	if length <= StringShortMaxLen {
 		byteBuf.WriteByte(byte(int(StringShortLenMin) + length))
-		byteBuf.Write(dataBys[begin:])
+		byteBuf.Write([]byte(string(dataBys[begin:])))
 		return byteBuf.Bytes()
 	}
 
@@ -105,7 +107,7 @@ func encodeString(value string) []byte {
 	if length <= StringMiddleMaxLen {
 		byteBuf.WriteByte(byte((length >> 8) + int(StringMiddleLenMin)))
 		byteBuf.WriteByte(byte(length))
-		byteBuf.Write(dataBys[begin:])
+		byteBuf.Write([]byte(string(dataBys[begin:])))
 		return byteBuf.Bytes()
 	}
 
@@ -113,15 +115,15 @@ func encodeString(value string) []byte {
 	byteBuf.WriteByte(StringFinalChunk)
 	byteBuf.WriteByte(byte(length >> 8))
 	byteBuf.WriteByte(byte(length))
-	byteBuf.Write(dataBys[begin:])
+	byteBuf.Write([]byte(string(dataBys[begin:])))
 	return byteBuf.Bytes()
 }
 
-func decodeString(reader io.Reader) (string, error) {
+func decodeString(reader *bufio.Reader) (string, error) {
 	return decodeStringValue(reader, TagRead)
 }
 
-func decodeStringValue(reader io.Reader, flag int32) (string, error) {
+func decodeStringValue(reader *bufio.Reader, flag int32) (string, error) {
 	tag, err := getTag(reader, flag)
 	if err != nil {
 		return "", err
@@ -138,14 +140,13 @@ func decodeStringValue(reader io.Reader, flag int32) (string, error) {
 	}
 
 	byteBuf := bytes.NewBuffer(nil)
-	buf := make([]byte, length)
-
+	buf := make([]rune, length)
 	for {
-		read, err := io.ReadFull(reader, buf)
+		read, err := readRunes(reader, buf)
 		if err != nil && !strings.Contains(err.Error(), "EOF") {
 			return "", err
 		}
-		byteBuf.Write(buf[:read])
+		byteBuf.Write([]byte(string(buf[:read])))
 
 		if stringEndTag(tag) {
 			break
@@ -199,7 +200,7 @@ func stringEndTag(tag byte) bool {
 	return tag == StringFinalChunk || stringShortTag(tag) || stringMiddleTag(tag)
 }
 
-func getStringLen(reader io.Reader, tag byte) (int, error) {
+func getStringLen(reader *bufio.Reader, tag byte) (int, error) {
 	if stringShortTag(tag) {
 		return int(tag - StringShortLenMin), nil
 	}
