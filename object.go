@@ -136,8 +136,9 @@ func (e *Encoder) writeObject(data interface{}) (int, error) {
 	if !ok {
 		length, _ = e.writeClsDef(typ, clsName)
 	}
-	if byte(length) <= ObjectTagMaxLen && length != 2 {
-		// 20181231 NOTE: when length=2, length+ObjectLenTagMin='b', the same as the binary chunk start at.
+	if byte(length) <= ObjectTagMaxLen {
+		// 20181231 NOTE: when length=2, length+ObjectLenTagMin='b', the same as the binary chunk start at,
+		// which will be special processed in decoder
 		e.writeBT(byte(length) + ObjectLenTagMin)
 	} else {
 		e.writeBT(ObjectTag)
