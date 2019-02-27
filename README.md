@@ -5,6 +5,8 @@ Clone from [viant/gohessian](https://github.com/viant/gohessian) , and do the fo
 - large scope refactoring to let code structure simple and human-friendly
 - more unit tests
 
+[tests](tests) is a great start guide. 
+
 TODO:
 - `ref` feature implement
 

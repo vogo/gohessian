@@ -137,7 +137,7 @@ func (e *Encoder) writeObject(data interface{}) (int, error) {
 		length, _ = e.writeClsDef(typ, clsName)
 	}
 	if byte(length) <= ObjectTagMaxLen {
-		// 20181231 NOTE: when length=2, length+ObjectLenTagMin='b', the same as the binary chunk start at,
+		// NOTE: when length=2, length+ObjectLenTagMin='b', the same as the binary chunk start with,
 		// which will be special processed in decoder
 		e.writeBT(byte(length) + ObjectLenTagMin)
 	} else {
@@ -313,11 +313,11 @@ func (d *Decoder) readField(fldName string, fldValue reflect.Value) error {
 		}
 		fldValue.SetUint(uint64(i))
 	case reflect.Bool:
-		b, err := d.ReadData()
+		b, err := d.readBoolean(TagRead)
 		if err != nil {
 			return err
 		}
-		fldValue.SetBool(b.(bool))
+		fldValue.SetBool(b)
 	case reflect.Float32, reflect.Float64:
 		f, err := d.readDouble(TagRead)
 		if err != nil {
@@ -325,7 +325,7 @@ func (d *Decoder) readField(fldName string, fldValue reflect.Value) error {
 		}
 		fldValue.SetFloat(f)
 	case reflect.Struct:
-		s, err := d.ReadTypeData(reflect.Struct)
+		s, err := d.readStruct()
 		if err != nil {
 			return err
 		}
