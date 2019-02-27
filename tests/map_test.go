@@ -22,8 +22,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/vogo/gohessian"
 	"github.com/stretchr/testify/assert"
+	"github.com/vogo/gohessian"
 )
 
 //TConfig define
@@ -51,8 +51,8 @@ var globalTConfigMap = make(TConfigMap)
 //GlobalTConfigMapValue reflect value
 var GlobalTConfigMapValue = reflect.ValueOf(&globalTConfigMap)
 
-var tHessianTypeMap map[string]reflect.Type
-var tHessianNameMap map[string]string
+var testMapHessianTypeMap map[string]reflect.Type
+var testMapHessianNameMap map[string]string
 var tCfgType reflect.Type
 var tMapType reflect.Type
 
@@ -61,13 +61,13 @@ func init() {
 	tCfgType = reflect.TypeOf(cfg)
 	tMapType = reflect.TypeOf(globalTConfigMap)
 
-	tHessianTypeMap = hessian.TypeMapOf(tCfgType)
-	tHessianTypeMap[cfg.JavaClassName()] = tCfgType
-	tHessianTypeMap[globalTConfigMap.JavaClassName()] = tMapType
+	testMapHessianTypeMap = hessian.TypeMapOf(tCfgType)
+	testMapHessianTypeMap[cfg.JavaClassName()] = tCfgType
+	testMapHessianTypeMap[globalTConfigMap.JavaClassName()] = tMapType
 
-	tHessianNameMap = make(map[string]string)
-	tHessianNameMap[tCfgType.Name()] = cfg.JavaClassName()
-	tHessianNameMap[tMapType.Name()] = globalTConfigMap.JavaClassName()
+	testMapHessianNameMap = make(map[string]string)
+	testMapHessianNameMap[tCfgType.Name()] = cfg.JavaClassName()
+	testMapHessianNameMap[tMapType.Name()] = globalTConfigMap.JavaClassName()
 }
 
 //DecodeTConfigMap from hessian encode bytes
@@ -75,7 +75,7 @@ func DecodeTConfigMap(data []byte) (cfg TConfigMap, err error) {
 	if data == nil || len(data) == 0 {
 		return nil, errors.New("nil byte")
 	}
-	res, err := hessian.ToObject(data, tHessianTypeMap)
+	res, err := hessian.ToObject(data, testMapHessianTypeMap)
 	if err != nil {
 		fmt.Printf("failed decode config map bytes: %v, %v", base64.StdEncoding.EncodeToString(data), err)
 		return nil, err
@@ -96,7 +96,7 @@ func DecodeTConfigMap(data []byte) (cfg TConfigMap, err error) {
 
 //EncodeTConfigMap to bytes
 func EncodeTConfigMap(cfg TConfigMap) ([]byte, error) {
-	return hessian.ToBytes(cfg, tHessianNameMap)
+	return hessian.ToBytes(cfg, testMapHessianNameMap)
 }
 
 func TestUntypedMap(t *testing.T) {

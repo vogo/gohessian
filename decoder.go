@@ -124,13 +124,33 @@ func (d *Decoder) readString(flag int32) (string, error) {
 }
 
 //ReadData read object
-func (d *Decoder) ReadData() (interface{}, error) {
+func (d *Decoder) ReadTypeData(k reflect.Kind) (interface{}, error) {
 	tag, err := d.readTag()
 	if err != nil {
 		hlog.Debugf("reading tag err:%v", err)
 		return nil, nil //ignore
 	}
 
+	// special process
+	if k == reflect.Struct && objectLenTag(tag) {
+		return d.ReadLenTagObject(tag)
+	}
+
+	return d.ReadTagData(tag)
+}
+
+//ReadData read object
+func (d *Decoder) ReadData() (interface{}, error) {
+	tag, err := d.readTag()
+	if err != nil {
+		hlog.Debugf("reading tag err:%v", err)
+		return nil, nil //ignore
+	}
+	return d.ReadTagData(tag)
+}
+
+//ReadTagData read tag object
+func (d *Decoder) ReadTagData(tag byte) (interface{}, error) {
 	switch {
 	case tag == EndFlag:
 		return nil, io.EOF

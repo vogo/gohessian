@@ -22,11 +22,12 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/vogo/gohessian"
 )
 
-var hessianTypeMap map[string]reflect.Type
-var hessianNameMap map[string]string
+var javaClassHessianTypeMap map[string]reflect.Type
+var javaClassHessianNameMap map[string]string
 
 // ServerAPI server api
 type ServerApi struct {
@@ -61,13 +62,13 @@ func init() {
 	serverNodeType := reflect.TypeOf(node)
 	serverApiType := reflect.TypeOf(api)
 
-	hessianTypeMap = hessian.TypeMapOf(serverNodeType)
-	hessianTypeMap[node.JavaClassName()] = serverNodeType
-	hessianTypeMap[api.JavaClassName()] = serverApiType
+	javaClassHessianTypeMap = hessian.TypeMapOf(serverNodeType)
+	javaClassHessianTypeMap[node.JavaClassName()] = serverNodeType
+	javaClassHessianTypeMap[api.JavaClassName()] = serverApiType
 
-	hessianNameMap = make(map[string]string)
-	hessianNameMap[serverNodeType.Name()] = node.JavaClassName()
-	hessianNameMap[serverApiType.Name()] = api.JavaClassName()
+	javaClassHessianNameMap = make(map[string]string)
+	javaClassHessianNameMap[serverNodeType.Name()] = node.JavaClassName()
+	javaClassHessianNameMap[serverApiType.Name()] = api.JavaClassName()
 }
 
 //DecodeServerNode from hessian encode bytes
@@ -75,7 +76,7 @@ func DecodeServerNode(data []byte) (node *ServerNode, err error) {
 	if data == nil || len(data) == 0 {
 		return nil, errors.New("nil byte")
 	}
-	res, err := hessian.ToObject(data, hessianTypeMap)
+	res, err := hessian.ToObject(data, javaClassHessianTypeMap)
 	if err != nil {
 		fmt.Println("failed decode bytes:", base64.StdEncoding.EncodeToString(data))
 		return nil, err
@@ -90,7 +91,7 @@ func DecodeServerNode(data []byte) (node *ServerNode, err error) {
 
 //EncodeServerNode to bytes
 func EncodeServerNode(node *ServerNode) ([]byte, error) {
-	return hessian.ToBytes(*node, hessianNameMap)
+	return hessian.ToBytes(*node, javaClassHessianNameMap)
 }
 
 func TestHessianEncodeDecode(t *testing.T) {
@@ -101,8 +102,8 @@ func TestHessianEncodeDecode(t *testing.T) {
 		Address:  "127.0.0.1",
 		Channels: []string{"c1", "c2"},
 		ApiList: []ServerApi{
-			ServerApi{AppRoot: "/user", ApiName: "user", ApiDesc: "user"},
-			ServerApi{AppRoot: "/list", ApiName: "list", ApiDesc: "list"},
+			{AppRoot: "/user", ApiName: "user", ApiDesc: "user"},
+			{AppRoot: "/list", ApiName: "list", ApiDesc: "list"},
 		},
 	}
 
@@ -114,11 +115,21 @@ func TestHessianEncodeDecode(t *testing.T) {
 
 	t.Log(base64.StdEncoding.EncodeToString(bt))
 
-	sn, err := DecodeServerNode(bt)
+	decodeNode, err := DecodeServerNode(bt)
 	if err != nil {
 		t.Error(err)
 		t.Fail()
 	}
 
-	t.Log(sn)
+	t.Log(decodeNode)
+	assert.Equal(t, node.Version, decodeNode.Version)
+	assert.Equal(t, node.Name, decodeNode.Name)
+	assert.Equal(t, node.Address, decodeNode.Address)
+	assert.Equal(t, 2, len(decodeNode.Channels))
+	assert.Equal(t, node.Channels[0], decodeNode.Channels[0])
+	assert.Equal(t, node.Channels[1], decodeNode.Channels[1])
+	assert.Equal(t, len(node.ApiList), len(decodeNode.ApiList))
+	assert.Equal(t, node.ApiList[0].AppRoot, decodeNode.ApiList[0].AppRoot)
+	assert.Equal(t, node.ApiList[0].ApiDesc, decodeNode.ApiList[0].ApiDesc)
+	assert.Equal(t, node.ApiList[0].ApiName, decodeNode.ApiList[0].ApiName)
 }
