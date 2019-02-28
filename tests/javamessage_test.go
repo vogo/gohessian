@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -18,9 +17,19 @@ type TraceVo struct {
 	Value string
 }
 
+//HessianCodecName for struct
+func (TraceVo) HessianCodecName() string {
+	return "tests.jobj.TraceVo"
+}
+
 type TraceData struct {
 	Seq  int
 	Data TraceVo
+}
+
+//HessianCodecName for struct
+func (TraceData) HessianCodecName() string {
+	return "tests.jobj.TraceData"
 }
 
 type Message struct {
@@ -28,27 +37,21 @@ type Message struct {
 	Msg   []TraceData
 }
 
-var javaMessageHessianTypeMap map[string]reflect.Type
-var javaMessageHessianNameMap map[string]string
+//HessianCodecName for struct
+func (Message) HessianCodecName() string {
+	return "tests.jobj.Message"
+}
+
+var (
+	message = Message{}
+
+	javaMessageHessianTypeMap = hessian.TypeMapFrom(message)
+	javaMessageHessianNameMap = hessian.NameMapFrom(message)
+)
 
 func init() {
-	vo := TraceVo{}
-	data := TraceData{}
-	message := Message{}
-
-	messageType := reflect.TypeOf(message)
-	traceDataType := reflect.TypeOf(data)
-	traceVoType := reflect.TypeOf(vo)
-
-	javaMessageHessianTypeMap = hessian.TypeMapOf(messageType)
-	javaMessageHessianTypeMap["tests.jobj.Message"] = messageType
-	javaMessageHessianTypeMap["tests.jobj.TraceData"] = traceDataType
-	javaMessageHessianTypeMap["tests.jobj.TraceVo"] = traceVoType
-
-	javaMessageHessianNameMap = make(map[string]string)
-	javaMessageHessianNameMap[messageType.Name()] = "tests.jobj.Message"
-	javaMessageHessianNameMap[traceDataType.Name()] = "tests.jobj.TraceData"
-	javaMessageHessianNameMap[traceVoType.Name()] = "tests.jobj.TraceVo"
+	fmt.Println(javaMessageHessianTypeMap)
+	fmt.Println(javaMessageHessianNameMap)
 }
 
 func decodeJavaMessage(data []byte) (msg *Message, err error) {

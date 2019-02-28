@@ -5,10 +5,15 @@ Clone from [viant/gohessian](https://github.com/viant/gohessian) , and do the fo
 - large scope refactoring to let code structure simple and human-friendly
 - more unit tests
 
-[tests](tests) is a great start guide. 
+## How to Use
 
-TODO:
+[test examples](tests) are great start guide to use this library. 
+
+[This example](tests/javamessage_test.go) shows how to integration with java.
+
+## TODO:
 - `ref` feature implement
 
-
-See [old README](README_old.md).
+## Reference
+- [Hessian 2.0 Serialization Protocol](http://hessian.caucho.com/doc/hessian-serialization.html)
+- See [old README](README_old.md).

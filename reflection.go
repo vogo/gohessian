@@ -1,6 +1,6 @@
 // Copyright 2018 vogo.
 // Author: wongoo
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not
 // use this file except in compliance with the License. You may obtain a copy of
 // the License at
@@ -22,35 +22,157 @@ import (
 	"strings"
 )
 
-//TypeMapFrom value
+//CodecNamable to define codec name for hessian
+type CodecNamable interface {
+	HessianCodecName() string
+}
+
+//ValueExtractor extract info from struct value
+type ValueExtractor func(v reflect.Value)
+
+//TypeMapFrom instance
 func TypeMapFrom(v interface{}) map[string]reflect.Type {
-	return TypeMapOf(reflect.TypeOf(v))
+	return ExtractTypeMap(reflect.ValueOf(v))
+}
+
+//ExtractTypeMap from reflect value
+func ExtractTypeMap(value reflect.Value) map[string]reflect.Type {
+	typMap := make(map[string]reflect.Type)
+	ExtractValue(value, func(v reflect.Value) {
+		typ := v.Type()
+		typMap[typ.Name()] = typ
+
+		if n, ok := v.Interface().(CodecNamable); ok {
+			typMap[n.HessianCodecName()] = typ
+		}
+
+	})
+	return typMap
+}
+
+//NameMapFrom instance
+func NameMapFrom(v interface{}) map[string]string {
+	return ExtractNameMap(reflect.ValueOf(v))
+}
+
+//ExtractNameMap from reflect value
+func ExtractNameMap(value reflect.Value) map[string]string {
+	nameMap := make(map[string]string)
+	ExtractValue(value, func(v reflect.Value) {
+		typ := v.Type()
+		if n, ok := v.Interface().(CodecNamable); ok {
+			nameMap[typ.Name()] = n.HessianCodecName()
+		}
+	})
+	return nameMap
+}
+
+//ExtractValue info
+func ExtractValue(v reflect.Value, extractor ValueExtractor) {
+	v = OriginalValue(v)
+
+	if IsRawKind(v.Kind()) {
+		return
+	}
+
+	extractor(v)
+
+	if v.Kind() == reflect.Array || v.Kind() == reflect.Slice {
+		itemTyp := OriginalType(v.Type().Elem())
+		if IsRawKind(itemTyp.Kind()) {
+			return
+		}
+
+		if v.Len() == 0 {
+			ExtractValue(reflect.New(itemTyp), extractor)
+			return
+		}
+
+		for i := 0; i < v.Len(); i++ {
+			ExtractValue(v.Index(i), extractor)
+		}
+		return
+	}
+
+	if v.Kind() == reflect.Map {
+		if v.Len() == 0 {
+			keyTyp := OriginalType(v.Type().Key())
+			valueTyp := OriginalType(v.Type().Elem())
+			if !IsRawKind(keyTyp.Kind()) {
+				ExtractValue(reflect.New(keyTyp), extractor)
+			}
+			if !IsRawKind(valueTyp.Kind()) {
+				ExtractValue(reflect.New(valueTyp), extractor)
+			}
+			return
+		}
+
+		for _, keyValue := range v.MapKeys() {
+			ExtractValue(keyValue, extractor)
+			ExtractValue(v.MapIndex(keyValue), extractor)
+		}
+		return
+	}
+
+	if v.Kind() == reflect.Struct {
+		for i := 0; i < v.NumField(); i++ {
+			f := v.Field(i)
+			ExtractValue(f, extractor)
+		}
+	}
 }
 
 //TypeMapOf type
 func TypeMapOf(typ reflect.Type) map[string]reflect.Type {
 	typMap := make(map[string]reflect.Type)
-	FetchTypeMap(typ, typMap)
+	FetchType(typ, typMap)
 	return typMap
 }
 
-//FetchTypeMap map
-func FetchTypeMap(typ reflect.Type, typMap map[string]reflect.Type) {
-	for typ.Kind() == reflect.Ptr {
-		typ = typ.Elem()
+//FetchType map
+func FetchType(typ reflect.Type, typMap map[string]reflect.Type) {
+	typ = OriginalType(typ)
+
+	if IsRawKind(typ.Kind()) {
+		return
 	}
+
+	if typ.Kind() == reflect.Array || typ.Kind() == reflect.Slice {
+		FetchType(typ.Elem(), typMap)
+		return
+	}
+
+	if typ.Kind() == reflect.Map {
+		FetchType(typ.Key(), typMap)
+		FetchType(typ.Elem(), typMap)
+		return
+	}
+
 	if typ.Kind() != reflect.Struct {
 		return
 	}
+
 	typMap[typ.Name()] = typ
 	for i := 0; i < typ.NumField(); i++ {
-		f := typ.Field(i)
-		ft := f.Type
-		if f.Type.Kind() == reflect.Array || f.Type.Kind() == reflect.Slice {
-			ft = f.Type.Elem()
-		}
-		FetchTypeMap(ft, typMap)
+		FetchType(typ.Field(i).Type, typMap)
 	}
+
+}
+
+//OriginalType unpack pointer type to original type
+func OriginalType(typ reflect.Type) reflect.Type {
+	for typ.Kind() == reflect.Ptr {
+		typ = typ.Elem()
+	}
+	return typ
+}
+
+//OriginalValue unpack pointer value to original value
+func OriginalValue(v reflect.Value) reflect.Value {
+	for v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	return v
 }
 
 //UnpackValue unpack reflect.Value
@@ -64,6 +186,7 @@ func UnpackValue(in interface{}, err error) (interface{}, error) {
 	return in, nil
 }
 
+//IsRawKind check whether k is raw kind
 func IsRawKind(k reflect.Kind) bool {
 	switch k {
 	case reflect.Struct, reflect.Interface, reflect.Map, reflect.Array, reflect.Slice, reflect.Ptr:
@@ -73,6 +196,7 @@ func IsRawKind(k reflect.Kind) bool {
 	}
 }
 
+//IntKind check whether k is int kind
 func IntKind(k reflect.Kind) bool {
 	switch k {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
@@ -82,6 +206,7 @@ func IntKind(k reflect.Kind) bool {
 	}
 }
 
+//UintKind check whether k is uint kind
 func UintKind(k reflect.Kind) bool {
 	switch k {
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
@@ -91,6 +216,7 @@ func UintKind(k reflect.Kind) bool {
 	}
 }
 
+//FloatKind check whether k is float kind
 func FloatKind(k reflect.Kind) bool {
 	switch k {
 	case reflect.Float32, reflect.Float64:
@@ -100,6 +226,7 @@ func FloatKind(k reflect.Kind) bool {
 	}
 }
 
+//EnsureFloat64 convert i to float64
 func EnsureFloat64(i interface{}) float64 {
 	if i64, ok := i.(float64); ok {
 		return i64
@@ -110,6 +237,7 @@ func EnsureFloat64(i interface{}) float64 {
 	panic(fmt.Errorf("can't convert to float64: %v, type:%v", i, reflect.TypeOf(i)))
 }
 
+//EnsureInt64 convert i to int64
 func EnsureInt64(i interface{}) int64 {
 	if i64, ok := i.(int64); ok {
 		return i64
@@ -120,6 +248,7 @@ func EnsureInt64(i interface{}) int64 {
 	panic(fmt.Errorf("can't convert to int64: %v, type:%v", i, reflect.TypeOf(i)))
 }
 
+//EnsureUint64 convert i to uint64
 func EnsureUint64(i interface{}) uint64 {
 	if i64, ok := i.(uint64); ok {
 		return i64
@@ -136,6 +265,7 @@ func EnsureUint64(i interface{}) uint64 {
 	panic(fmt.Errorf("can't convert to uint64: %v, type:%v", i, reflect.TypeOf(i)))
 }
 
+//SetSlice set value into slice object
 func SetSlice(value reflect.Value, objects interface{}) error {
 	if objects == nil {
 		return nil

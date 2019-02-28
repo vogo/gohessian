@@ -19,15 +19,11 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/vogo/gohessian"
 )
-
-var javaClassHessianTypeMap map[string]reflect.Type
-var javaClassHessianNameMap map[string]string
 
 // ServerAPI server api
 type ServerApi struct {
@@ -46,29 +42,25 @@ type ServerNode struct {
 	ApiList  []ServerApi `json:"apiList"`
 }
 
-//JavaClassName for ServerApi
-func (ServerApi) JavaClassName() string {
+//HessianCodecName for ServerApi
+func (ServerApi) HessianCodecName() string {
 	return "test.ServerApi"
 }
 
-//JavaClassName for ServerNode
-func (ServerNode) JavaClassName() string {
+//HessianCodecName for ServerNode
+func (ServerNode) HessianCodecName() string {
 	return "test.ServerNode"
 }
 
+var (
+	node                    = ServerNode{}
+	javaClassHessianTypeMap = hessian.TypeMapFrom(node)
+	javaClassHessianNameMap = hessian.NameMapFrom(node)
+)
+
 func init() {
-	node := ServerNode{}
-	api := ServerApi{}
-	serverNodeType := reflect.TypeOf(node)
-	serverApiType := reflect.TypeOf(api)
-
-	javaClassHessianTypeMap = hessian.TypeMapOf(serverNodeType)
-	javaClassHessianTypeMap[node.JavaClassName()] = serverNodeType
-	javaClassHessianTypeMap[api.JavaClassName()] = serverApiType
-
-	javaClassHessianNameMap = make(map[string]string)
-	javaClassHessianNameMap[serverNodeType.Name()] = node.JavaClassName()
-	javaClassHessianNameMap[serverApiType.Name()] = api.JavaClassName()
+	fmt.Println(javaClassHessianTypeMap)
+	fmt.Println(javaClassHessianNameMap)
 }
 
 //DecodeServerNode from hessian encode bytes

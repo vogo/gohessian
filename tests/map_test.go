@@ -33,41 +33,29 @@ type TConfig struct {
 	Flag   int
 }
 
-//JavaClassName java class name
-func (TConfig) JavaClassName() string {
+//HessianCodecName java class name
+func (TConfig) HessianCodecName() string {
 	return "test.TConfig"
 }
 
 //TConfigMap define
 type TConfigMap map[string]*TConfig
 
-//JavaClassName java class name
-func (TConfigMap) JavaClassName() string {
+//HessianCodecName java class name
+func (TConfigMap) HessianCodecName() string {
 	return "java.util.concurrent.ConcurrentHashMap"
 }
 
-var globalTConfigMap = make(TConfigMap)
+var (
+	globalTConfigMap = make(TConfigMap)
 
-//GlobalTConfigMapValue reflect value
-var GlobalTConfigMapValue = reflect.ValueOf(&globalTConfigMap)
-
-var testMapHessianTypeMap map[string]reflect.Type
-var testMapHessianNameMap map[string]string
-var tCfgType reflect.Type
-var tMapType reflect.Type
+	testMapHessianTypeMap = hessian.TypeMapFrom(globalTConfigMap)
+	testMapHessianNameMap = hessian.NameMapFrom(globalTConfigMap)
+)
 
 func init() {
-	cfg := TConfig{}
-	tCfgType = reflect.TypeOf(cfg)
-	tMapType = reflect.TypeOf(globalTConfigMap)
-
-	testMapHessianTypeMap = hessian.TypeMapOf(tCfgType)
-	testMapHessianTypeMap[cfg.JavaClassName()] = tCfgType
-	testMapHessianTypeMap[globalTConfigMap.JavaClassName()] = tMapType
-
-	testMapHessianNameMap = make(map[string]string)
-	testMapHessianNameMap[tCfgType.Name()] = cfg.JavaClassName()
-	testMapHessianNameMap[tMapType.Name()] = globalTConfigMap.JavaClassName()
+	fmt.Println(testMapHessianTypeMap)
+	fmt.Println(testMapHessianNameMap)
 }
 
 //DecodeTConfigMap from hessian encode bytes
