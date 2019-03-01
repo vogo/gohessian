@@ -49,8 +49,6 @@ package hessian
 import (
 	"bufio"
 	"encoding/binary"
-	"errors"
-	"fmt"
 	"math"
 )
 
@@ -82,7 +80,7 @@ func encodeDouble(value float64) ([]byte, error) {
 		if iv >= -0x8000 && iv < 0x8000 {
 			return []byte{DoubleByteTag, byte(iv >> 8), byte(iv)}, nil
 		}
-		return nil, newCodecError("encodeDouble", "unsupported double range ", iv)
+		return nil, newCodecError("encodeDouble", "unsupported double range: %v", iv)
 	}
 
 	bits := uint64(math.Float64bits(value))
@@ -97,7 +95,7 @@ func encodeDouble(value float64) ([]byte, error) {
 		byte(bits)}, nil
 }
 
-func DoubleTag(tag byte) bool {
+func doubleTag(tag byte) bool {
 	switch tag {
 	case Long4ByteStartTag, DoubleMillTag, DoubleZeroTag, DoubleOneTag, DoubleByteTag, DoubleShortTag, DoubleStartTag, BcDateMinute:
 		return true
@@ -144,8 +142,8 @@ func decodeDoubleValue(reader *bufio.Reader, flag int32) (float64, error) {
 		datum := math.Float64frombits(bits)
 		return datum, nil
 	case BcDateMinute:
-		return 0, errors.New("date minute decode not yet implemented")
+		return 0, newCodecError("decodeDoubleValue", "date minute decode not yet implemented")
 	}
 
-	return 0, fmt.Errorf("wrong double tag: %x", tag)
+	return 0, newCodecError("decodeDoubleValue", "wrong double tag: %x", tag)
 }

@@ -46,24 +46,12 @@ func (TConfigMap) HessianCodecName() string {
 	return "java.util.concurrent.ConcurrentHashMap"
 }
 
-var (
-	globalTConfigMap = make(TConfigMap)
-
-	testMapHessianTypeMap = hessian.TypeMapFrom(globalTConfigMap)
-	testMapHessianNameMap = hessian.NameMapFrom(globalTConfigMap)
-)
-
-func init() {
-	fmt.Println(testMapHessianTypeMap)
-	fmt.Println(testMapHessianNameMap)
-}
-
 //DecodeTConfigMap from hessian encode bytes
-func DecodeTConfigMap(data []byte) (cfg TConfigMap, err error) {
+func DecodeTConfigMap(data []byte, typMap map[string]reflect.Type) (cfg TConfigMap, err error) {
 	if data == nil || len(data) == 0 {
 		return nil, errors.New("nil byte")
 	}
-	res, err := hessian.ToObject(data, testMapHessianTypeMap)
+	res, err := hessian.ToObject(data, typMap)
 	if err != nil {
 		fmt.Printf("failed decode config map bytes: %v, %v", base64.StdEncoding.EncodeToString(data), err)
 		return nil, err
@@ -83,11 +71,12 @@ func DecodeTConfigMap(data []byte) (cfg TConfigMap, err error) {
 }
 
 //EncodeTConfigMap to bytes
-func EncodeTConfigMap(cfg TConfigMap) ([]byte, error) {
-	return hessian.ToBytes(cfg, testMapHessianNameMap)
+func EncodeTConfigMap(cfg TConfigMap, nameMap map[string]string) ([]byte, error) {
+	return hessian.ToBytes(cfg, nameMap)
 }
 
 func TestUntypedMap(t *testing.T) {
+
 	m := make(map[interface{}]interface{})
 	m["test"] = "test"
 	m["test2"] = 1
@@ -116,18 +105,26 @@ func TestUntypedMap(t *testing.T) {
 }
 
 func TestTEncodeDecode(t *testing.T) {
+	configMaps := make(TConfigMap)
+
+	typeMap := hessian.TypeMapFrom(configMaps)
+	nameMap := hessian.NameMapFrom(configMaps)
+
+	fmt.Println(typeMap)
+	fmt.Println(nameMap)
+
 	tMap := make(TConfigMap)
 	tMap["200101"] = &TConfig{Enable: true, Msg: "test1", Flag: 999}
 	tMap["200102"] = &TConfig{Enable: false, Msg: "test2", Flag: -999}
 
-	bytes, err := EncodeTConfigMap(tMap)
+	bytes, err := EncodeTConfigMap(tMap, nameMap)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 	t.Logf("base64: %s", string(bytes))
 
-	cfg, err := DecodeTConfigMap(bytes)
+	cfg, err := DecodeTConfigMap(bytes, typeMap)
 	if err != nil {
 		t.Error(err)
 		return

@@ -18,19 +18,19 @@ package hessian
 func (d *Decoder) readType() (string, error) {
 	tag, err := readTag(d.reader)
 	if err != nil {
-		return "", newCodecError("reading tag", err)
+		return "", newCodecError("readType", err)
 	}
 	if stringTag(tag) {
 		t, err := d.readString(int32(tag))
 		if err != nil {
-			return "", newCodecError("reading tag", err)
+			return "", newCodecError("readType", err)
 		}
 		d.typList = append(d.typList, t)
 		return t, nil
 	}
 	i, err := d.readInt(TagRead)
 	if err != nil {
-		return "", newCodecError("reading tag", err)
+		return "", newCodecError("readType", err)
 	}
 	index := int(i)
 	return d.typList[index], nil

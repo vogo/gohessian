@@ -44,7 +44,6 @@ package hessian
 import (
 	"bufio"
 	"encoding/binary"
-	"fmt"
 	"unsafe"
 )
 
@@ -73,7 +72,7 @@ const (
 	Int4ByteStartTag = byte('I')
 )
 
-func IntTag(tag byte) bool {
+func intTag(tag byte) bool {
 	return (tag >= Int1ByteTagMin && tag <= Int1ByteTagMax) ||
 		(tag >= Int2ByteTagMin && tag <= Int2ByteTagMax) ||
 		(tag >= Int3ByteTagMin && tag <= Int3ByteTagMax) ||
@@ -162,5 +161,5 @@ func decodeIntValue(reader *bufio.Reader, flag int32) (int32, error) {
 		return i32, nil
 	}
 
-	return 0, fmt.Errorf("wrong int tag: %x", tag)
+	return 0, newCodecError("decodeIntValue", "wrong int tag: %x", tag)
 }

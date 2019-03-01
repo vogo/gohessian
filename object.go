@@ -104,28 +104,35 @@
 package hessian
 
 import (
-	"fmt"
 	"io"
 	"reflect"
 	"strings"
 )
 
 const (
-	ObjectTag       = byte('O')
-	ObjectDefTag    = byte('C')
-	ObjectLenTagMin = byte(0x60)
-	ObjectLenTagMax = byte(0x6f)
-	ObjectTagMaxLen = ObjectLenTagMax - ObjectLenTagMin
+	objectTag       = byte('O')
+	objectDefTag    = byte('C')
+	objectLenTagMin = byte(0x60)
+	objectLenTagMax = byte(0x6f)
+	objectTagMaxLen = objectLenTagMax - objectLenTagMin
 )
 
 func objectLenTag(tag byte) bool {
-	return tag >= ObjectLenTagMin && tag <= ObjectLenTagMax
+	return tag >= objectLenTagMin && tag <= objectLenTagMax
 }
 
 //see: http://hessian.caucho.com/doc/hessian-serialization.html##object
 func (e *Encoder) writeObject(data interface{}) (int, error) {
-	typ := reflect.TypeOf(data)
+	// object data MUST not be unpacked
 	vv := reflect.ValueOf(data)
+
+	// check ref
+	if n, ok := e.checkEncodeRefMap(vv); ok {
+		return e.writeRef(n)
+	}
+
+	vv = UnpackPtrValue(vv)
+	typ := vv.Type()
 
 	clsName, ok := e.nameMap[typ.Name()]
 	if !ok {
@@ -136,12 +143,12 @@ func (e *Encoder) writeObject(data interface{}) (int, error) {
 	if !ok {
 		length, _ = e.writeClsDef(typ, clsName)
 	}
-	if byte(length) <= ObjectTagMaxLen {
-		// NOTE: when length=2, length+ObjectLenTagMin='b', the same as the binary chunk start with,
+	if byte(length) <= objectTagMaxLen {
+		// NOTE: when length=2, length+objectLenTagMin='b', the same as the binary chunk start with,
 		// which will be special processed in decoder
-		e.writeBT(byte(length) + ObjectLenTagMin)
+		e.writeBT(byte(length) + objectLenTagMin)
 	} else {
-		e.writeBT(ObjectTag)
+		e.writeBT(objectTag)
 		e.writeInt(int32(length))
 	}
 	for i := 0; i < vv.NumField(); i++ {
@@ -154,7 +161,7 @@ func (e *Encoder) writeObject(data interface{}) (int, error) {
 }
 
 func (e *Encoder) writeClsDef(typ reflect.Type, clsName string) (int, error) {
-	e.writeBT(ObjectDefTag)
+	e.writeBT(objectDefTag)
 	e.writeString(clsName)
 	fldList := make([]string, typ.NumField())
 	e.writeInt(int32(len(fldList)))
@@ -200,31 +207,31 @@ func (d *Decoder) readClassDef() (interface{}, error) {
 	return cls, nil
 }
 
-//ReadTagObject read tag object
-func (d *Decoder) ReadTagObject() (interface{}, error) {
+//readTagObject read tag object
+func (d *Decoder) readTagObject() (interface{}, error) {
 	i, _ := d.readInt(TagRead)
 	idx := int(i)
 	clsD := d.clsDefList[idx]
 	typ, ok := d.typMap[clsD.FullClassName]
 	if !ok {
-		return nil, newCodecError("ReadTagObject", "undefined type for "+clsD.FullClassName)
+		return nil, newCodecError("readTagObject", "undefined type: %s", clsD.FullClassName)
 	}
-	return UnpackValue(d.readObject(typ, clsD))
+	return EnsureInterface(d.readObject(typ, clsD))
 }
 
 //ReadLenTagObject read length tag object
 func (d *Decoder) ReadLenTagObject(tag byte) (interface{}, error) {
-	i := int(tag - ObjectLenTagMin)
+	i := int(tag - objectLenTagMin)
 	clsD := d.clsDefList[i]
 	typ, ok := d.typMap[clsD.FullClassName]
 	if !ok {
-		return nil, newCodecError("ReadLenTagObject", "undefined type for "+clsD.FullClassName)
+		return nil, newCodecError("ReadLenTagObject", "undefined type: %s", clsD.FullClassName)
 	}
-	return UnpackValue(d.readObject(typ, clsD))
+	return EnsureInterface(d.readObject(typ, clsD))
 }
 
-//ReadObjectDef read object def
-func (d *Decoder) ReadObjectDef() (interface{}, error) {
+//readObjectDef read object def
+func (d *Decoder) readObjectDef() (interface{}, error) {
 	clsDef, err := d.readClassDef()
 	if err != nil {
 		return nil, err
@@ -243,18 +250,20 @@ func (d *Decoder) ReadObjectDef() (interface{}, error) {
 		return d.ReadLenTagObject(tag)
 	}
 
-	if tag == ObjectTag {
-		return d.ReadTagObject()
+	if tag == objectTag {
+		return d.readTagObject()
 	}
-	return nil, newCodecError("unknown tag after class def ", tag)
+	return nil, newCodecError("readObjectDef", "unknown tag after class def: %x", tag)
 }
 
 func (d *Decoder) readObject(typ reflect.Type, cls ClassDef) (interface{}, error) {
 	if typ.Kind() != reflect.Struct {
-		return nil, newCodecError("wrong type expect struct but get " + typ.String())
+		return nil, newCodecError("readObject", "expect type struct but get %v", typ)
 	}
 	vv := reflect.New(typ)
-	st := reflect.ValueOf(vv.Interface()).Elem()
+	d.addDecoderRef(vv)
+
+	st := vv.Elem()
 	for i := 0; i < len(cls.FieldName); i++ {
 		fldName := cls.FieldName[i]
 		index, err := findField(fldName, typ)
@@ -264,20 +273,24 @@ func (d *Decoder) readObject(typ reflect.Type, cls ClassDef) (interface{}, error
 		}
 		fldValue := st.Field(index)
 		if !fldValue.CanSet() {
-			return nil, newCodecError("CanSet false for " + fldName)
+			return nil, newCodecError("readObject", "field %s can set", fldName)
 		}
 
 		err = d.readField(fldName, fldValue)
 		if err != nil {
-			return nil, newCodecError("failed to decode field "+fldName, err)
+			return nil, newCodecError("readObject", "failed to decode field %s", fldName, err)
 		}
+
+		// fmt.Printf("after add field %s: %v, %v, %p\n", fldName, vv.Type(), vv.Interface(), vv.Interface())
 	}
 	return vv, nil
 }
 
 func (d *Decoder) readField(fldName string, fldValue reflect.Value) error {
-	kind := fldValue.Kind()
-	switch kind {
+	sourceValue := fldValue
+	typ := UnpackPtrType(fldValue.Type())
+	fldValue = UnpackPtrValue(fldValue)
+	switch typ.Kind() {
 	case reflect.String:
 		str, err := d.readString(TagRead)
 		if err != nil {
@@ -329,9 +342,9 @@ func (d *Decoder) readField(fldName string, fldValue reflect.Value) error {
 		if err != nil {
 			return err
 		}
-		fldValue.Set(reflect.Indirect(reflect.ValueOf(s)))
+		SetValue(sourceValue, reflect.ValueOf(s))
 	case reflect.Map:
-		d.readMap(fldValue)
+		d.readMap(sourceValue)
 	case reflect.Slice, reflect.Array:
 		m, err := d.ReadList()
 		if err != nil {
@@ -340,12 +353,12 @@ func (d *Decoder) readField(fldName string, fldValue reflect.Value) error {
 			}
 			return err
 		}
-		err = SetSlice(fldValue, m)
+		err = SetSlice(sourceValue, m)
 		if err != nil {
 			return err
 		}
 	default:
-		return fmt.Errorf("unsupported field: %s, type: %v", fldName, fldValue.Type())
+		return newCodecError("readField", "unsupported field: %s, type: %v, kind: %v", fldName, sourceValue.Type(), typ.Kind())
 	}
 
 	return nil

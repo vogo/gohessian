@@ -56,13 +56,13 @@ func (gh *goHessian) ToObject(ins []byte) (interface{}, error) {
 
 //ToBytes serialize object to bytes
 func ToBytes(object interface{}, nameMap map[string]string) ([]byte, error) {
-	btBufs := bytes.NewBuffer(nil)
-	e := NewEncoder(btBufs, nameMap)
+	buffer := bytes.NewBuffer(nil)
+	e := NewEncoder(buffer, nameMap)
 	_, err := e.WriteData(object)
 	if err != nil {
 		return nil, err
 	}
-	return btBufs.Bytes(), nil
+	return buffer.Bytes(), nil
 }
 
 var globalNameMap = make(map[string]string, 17)

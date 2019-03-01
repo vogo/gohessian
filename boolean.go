@@ -17,7 +17,6 @@ package hessian
 
 import (
 	"bufio"
-	"fmt"
 )
 
 const (
@@ -47,5 +46,5 @@ func decodeBooleanValue(reader *bufio.Reader, flag int32) (bool, error) {
 	case BoolFalseTag:
 		return false, nil
 	}
-	return false, fmt.Errorf("wrong boolean tag: %x", tag)
+	return false, newCodecError("decodeBooleanValue", "wrong boolean tag: %x", tag)
 }

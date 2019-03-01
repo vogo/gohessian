@@ -19,7 +19,6 @@
 package hessian
 
 import (
-	"fmt"
 	"io"
 	"reflect"
 )
@@ -29,6 +28,7 @@ type Encoder struct {
 	writer     io.Writer
 	clsDefList []ClassDef
 	nameMap    map[string]string
+	refMap     map[uintptr]int
 }
 
 //NewEncoder new
@@ -39,7 +39,12 @@ func NewEncoder(w io.Writer, np map[string]string) *Encoder {
 	if np == nil {
 		np = make(map[string]string, 17)
 	}
-	encoder := &Encoder{w, make([]ClassDef, 0, 17), np}
+	encoder := &Encoder{
+		writer:     w,
+		clsDefList: make([]ClassDef, 0, 17),
+		nameMap:    np,
+		refMap:     make(map[uintptr]int, 17),
+	}
 	return encoder
 }
 
@@ -62,16 +67,23 @@ func (e *Encoder) Reset() {
 //WriteData write object
 func (e *Encoder) WriteData(data interface{}) (int, error) {
 	if data == nil {
-		io.WriteString(e.writer, "N")
+		e.writeBT(BcNull)
 		return 1, nil
 	}
-	typ := reflect.TypeOf(data)
-	for typ.Kind() == reflect.Ptr {
-		data = reflect.ValueOf(data).Elem().Interface()
-		typ = typ.Elem()
+	source := data
+	v := UnpackPtrValue(reflect.ValueOf(data))
+
+	if !IsRawKind(v.Kind()) && IsZero(v) {
+		e.writeBT(BcNull)
+		return 1, nil
 	}
 
-	switch typ.Kind() {
+	data = v.Interface()
+
+	switch v.Kind() {
+	case reflect.Bool:
+		value := data.(bool)
+		return e.writeBoolean(value)
 	case reflect.String:
 		value := data.(string)
 		return e.writeString(value)
@@ -105,23 +117,20 @@ func (e *Encoder) WriteData(data interface{}) (int, error) {
 	case reflect.Uint64: // as long
 		value := int64(data.(uint64))
 		return e.writeLong(value)
-	case reflect.Slice, reflect.Array:
-		return e.writeList(data)
 	case reflect.Float32:
 		value := data.(float32)
 		return e.writeDouble(float64(value))
 	case reflect.Float64:
 		value := data.(float64)
 		return e.writeDouble(value)
+	case reflect.Slice, reflect.Array:
+		return e.writeList(source)
 	case reflect.Map:
-		return e.writeMap(data)
-	case reflect.Bool:
-		value := data.(bool)
-		return e.writeBoolean(value)
+		return e.writeMap(source)
 	case reflect.Struct:
-		return e.writeObject(data)
+		return e.writeObject(source)
 	}
-	return 0, fmt.Errorf("unsupported object:%v, kind:%v, type:%v", data, typ.Kind(), typ)
+	return 0, newCodecError("WriteData", "unsupported object:%v, kind:%v, type:%v", data, v.Kind(), v.Kind())
 }
 
 func (e *Encoder) writeString(value string) (int, error) {

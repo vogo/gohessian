@@ -50,7 +50,7 @@ type Decoder struct {
 	reader     *bufio.Reader
 	typMap     map[string]reflect.Type
 	typList    []string
-	refList    []interface{}
+	refList    []reflect.Value
 	clsDefList []ClassDef
 }
 
@@ -59,7 +59,13 @@ func NewDecoder(r *bufio.Reader, typ map[string]reflect.Type) *Decoder {
 	if typ == nil {
 		typ = make(map[string]reflect.Type, 17)
 	}
-	decode := &Decoder{r, typ, make([]string, 0, 17), make([]interface{}, 0, 17), make([]ClassDef, 0, 17)}
+	decode := &Decoder{
+		reader:     r,
+		typMap:     typ,
+		typList:    make([]string, 0, 17),
+		refList:    make([]reflect.Value, 0, 17),
+		clsDefList: make([]ClassDef, 0, 17),
+	}
 	return decode
 }
 
@@ -80,9 +86,9 @@ func (d *Decoder) RegisterVal(key string, val interface{}) {
 
 //Reset reset
 func (d *Decoder) Reset() {
-	d.typMap = make(map[string]reflect.Type, 17)
+	d.typList = make([]string, 0, 17)
 	d.clsDefList = make([]ClassDef, 0, 17)
-	d.refList = make([]interface{}, 17)
+	d.refList = make([]reflect.Value, 0, 17)
 }
 
 func (d *Decoder) readTag() (byte, error) {
@@ -93,7 +99,7 @@ func (d *Decoder) readBytes(size int) ([]byte, error) {
 	return readBytes(d.reader, size)
 }
 
-//IntWithType name is option, if it is nil, use type.Name()
+//ReadObjectWithType name is option, if it is nil, use type.Name()
 func (d *Decoder) ReadObjectWithType(typ reflect.Type, name string) (interface{}, error) {
 	//register the type if it did exist
 	if _, ok := d.typMap[name]; ok {
@@ -139,14 +145,16 @@ func (d *Decoder) readStruct() (interface{}, error) {
 		return nil, io.EOF
 	case tag == BcNull:
 		return nil, nil
-	case tag == ObjectDefTag:
-		return d.ReadObjectDef()
+	case tag == objectDefTag:
+		return d.readObjectDef()
 	case objectLenTag(tag):
 		return d.ReadLenTagObject(tag)
-	case tag == ObjectTag:
-		return d.ReadTagObject()
+	case tag == objectTag:
+		return d.readTagObject()
+	case refTag(tag):
+		return d.readRef(tag)
 	default:
-		return nil, newCodecError("readStruct", "unknown tag:", tag)
+		return nil, newCodecError("readStruct", "unknown tag: %x", tag)
 	}
 }
 
@@ -167,31 +175,33 @@ func (d *Decoder) ReadData() (interface{}, error) {
 		return true, nil
 	case tag == BoolFalseTag:
 		return false, nil
-	case IntTag(tag):
+	case intTag(tag):
 		return d.readInt(int32(tag))
-	case LongTag(tag):
+	case longTag(tag):
 		return d.readLong(int32(tag))
-	case DoubleTag(tag):
+	case doubleTag(tag):
 		return d.readDouble(int32(tag))
 	case stringTag(tag):
 		return d.readString(int32(tag))
 	case binaryTag(tag):
 		return d.readBinary(int32(tag))
+	case refTag(tag):
+		return d.readRef(tag)
 	case tag == MapTypedTag:
-		return d.ReadTypedMap()
+		return d.readTypedMap()
 	case tag == MapUntypedTag:
-		return d.ReadUntypedMap()
-	case tag == ObjectDefTag:
-		return d.ReadObjectDef()
+		return d.readUntypedMap()
+	case tag == objectDefTag:
+		return d.readObjectDef()
 	case objectLenTag(tag):
 		return d.ReadLenTagObject(tag)
-	case tag == ObjectTag:
-		return d.ReadTagObject()
+	case tag == objectTag:
+		return d.readTagObject()
 	case typedListTag(tag):
-		return d.ReadTypedList(tag)
+		return d.readTypedList(tag)
 	case untypedListTag(tag):
-		return d.ReadUntypedList(tag)
+		return d.readUntypedList(tag)
 	default:
-		return nil, newCodecError("readData", "unknown tag:", tag)
+		return nil, newCodecError("readData", "unknown tag: %x", tag)
 	}
 }

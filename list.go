@@ -28,7 +28,7 @@
 // An ordered list, like an array. The two list productions are a fixed-length list and a variable length list.
 // Both lists have a type. The type string may be an arbitrary UTF-8 string understood by the service.
 //
-// Each list item is added to the reference list to handle shared and circular elements. See the ref element.
+// Each list item is added to the reference list to handle shared and circularT elements. See the ref element.
 //
 // Any parser expecting a list must also accept a null or a shared ref.
 //
@@ -76,7 +76,6 @@
 package hessian
 
 import (
-	"fmt"
 	"io"
 	"reflect"
 )
@@ -123,7 +122,17 @@ func (e *Encoder) writeList(data interface{}) (int, error) {
 		return e.writeBinary(bt)
 	}
 
+	// object data MUST not be unpacked
 	vv := reflect.ValueOf(data)
+
+	// check ref
+	if n, ok := e.checkEncodeRefMap(vv); ok {
+		return e.writeRef(n)
+	}
+
+	// unpack to parser values
+	vv = UnpackPtrValue(vv)
+
 	e.writeBT(ListFixedUntypedTag)
 	e.writeInt(int32(vv.Len()))
 	for i := 0; i < vv.Len(); i++ {
@@ -144,27 +153,31 @@ func (d *Decoder) ReadList() (interface{}, error) {
 		return d.readBinary(int32(tag))
 	}
 
+	if refTag(tag) {
+		return d.readRef(tag)
+	}
+
 	switch {
 	case typedListTag(tag):
-		return d.ReadTypedList(tag)
+		return d.readTypedList(tag)
 	case untypedListTag(tag):
-		return d.ReadUntypedList(tag)
+		return d.readUntypedList(tag)
 	case tag == BcNull:
 		return nil, nil
 	default:
-		return nil, fmt.Errorf("expect list tag but get %x", tag)
+		return nil, newCodecError("ReadList", "expect list tag but get %x", tag)
 	}
 }
 
-// ReadTypedList read typed list
+// readTypedList read typed list
 // Include 3 formats:
 // list ::= x55 type value* 'Z'   # variable-length list
 //      ::= 'V' type int value*   # fixed-length list
 //      ::= [x70-77] type value*  # fixed-length typed list
-func (d *Decoder) ReadTypedList(tag byte) (interface{}, error) {
+func (d *Decoder) readTypedList(tag byte) (interface{}, error) {
 	listTyp, err := d.readType()
 	if err != nil {
-		return nil, newCodecError("ReadType", err)
+		return nil, newCodecError("readTypedList", err)
 	}
 
 	isVariableArr := tag == ListVariableTypedTag
@@ -175,13 +188,13 @@ func (d *Decoder) ReadTypedList(tag byte) (interface{}, error) {
 	} else if tag == ListFixedTypedStartTag {
 		ii, err := d.readInt(TagRead)
 		if err != nil {
-			return nil, newCodecError("ReadType", err)
+			return nil, newCodecError("readTypedList", err)
 		}
 		length = int(ii)
 	} else if isVariableArr {
 		length = 1
 	} else {
-		return nil, fmt.Errorf("expect typed list tag, but get %x", tag)
+		return nil, newCodecError("readTypedList", "expect typed list tag, but get %x", tag)
 	}
 
 	isBuildInType(listTyp)
@@ -189,7 +202,7 @@ func (d *Decoder) ReadTypedList(tag byte) (interface{}, error) {
 	// read first array item
 	it, err := d.ReadData()
 	if err != nil {
-		return nil, newCodecError("ReadList", err)
+		return nil, newCodecError("readTypedList", err)
 	}
 
 	// return when no element
@@ -200,6 +213,7 @@ func (d *Decoder) ReadTypedList(tag byte) (interface{}, error) {
 	aryType := reflect.SliceOf(reflect.TypeOf(it))
 	aryValue := reflect.MakeSlice(aryType, length, length)
 	aryValue.Index(0).Set(reflect.ValueOf(it))
+	d.addDecoderRef(aryValue)
 
 	for j := 1; j < length || isVariableArr; j++ {
 		it, err := d.ReadData()
@@ -207,7 +221,7 @@ func (d *Decoder) ReadTypedList(tag byte) (interface{}, error) {
 			if err == io.EOF && isVariableArr {
 				break
 			}
-			return nil, newCodecError("ReadList", err)
+			return nil, newCodecError("readTypedList", err)
 		}
 
 		v := reflect.ValueOf(it)
@@ -221,12 +235,12 @@ func (d *Decoder) ReadTypedList(tag byte) (interface{}, error) {
 	return aryValue.Interface(), nil
 }
 
-//ReadUntypedList read untyped list
+//readUntypedList read untyped list
 // Include 3 formats:
 //      ::= x57 value* 'Z'        # variable-length untyped list
 //      ::= x58 int value*        # fixed-length untyped list
 //      ::= [x78-7f] value*       # fixed-length untyped list
-func (d *Decoder) ReadUntypedList(tag byte) (interface{}, error) {
+func (d *Decoder) readUntypedList(tag byte) (interface{}, error) {
 	isVariableArr := tag == ListVariableUntypedTag
 
 	var length int
@@ -235,23 +249,25 @@ func (d *Decoder) ReadUntypedList(tag byte) (interface{}, error) {
 	} else if tag == ListFixedUntypedTag {
 		ii, err := d.readInt(TagRead)
 		if err != nil {
-			return nil, newCodecError("ReadType", err)
+			return nil, newCodecError("readUntypedList", err)
 		}
 		length = int(ii)
 	} else if isVariableArr {
 		length = 0
 	} else {
-		return nil, fmt.Errorf("expect untyped list tag, but get %x", tag)
+		return nil, newCodecError("readUntypedList", "expect untyped list tag, but get %x", tag)
 	}
 
 	ary := make([]interface{}, length)
+	d.addDecoderRef(reflect.ValueOf(ary))
+
 	for j := 0; j < length || isVariableArr; j++ {
 		it, err := d.ReadData()
 		if err != nil {
 			if err == io.EOF && isVariableArr {
 				continue
 			}
-			return nil, newCodecError("ReadList", err)
+			return nil, newCodecError("readUntypedList", err)
 		}
 
 		if isVariableArr {

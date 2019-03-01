@@ -19,6 +19,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -32,7 +33,7 @@ type ServerApi struct {
 	AppRoot string `json:"appRoot"`
 }
 
-//ServerNode server node
+//ServerNode server serverNode
 type ServerNode struct {
 	Name     string      `json:"name"`
 	Version  string      `json:"version"`
@@ -52,23 +53,12 @@ func (ServerNode) HessianCodecName() string {
 	return "test.ServerNode"
 }
 
-var (
-	node                    = ServerNode{}
-	javaClassHessianTypeMap = hessian.TypeMapFrom(node)
-	javaClassHessianNameMap = hessian.NameMapFrom(node)
-)
-
-func init() {
-	fmt.Println(javaClassHessianTypeMap)
-	fmt.Println(javaClassHessianNameMap)
-}
-
 //DecodeServerNode from hessian encode bytes
-func DecodeServerNode(data []byte) (node *ServerNode, err error) {
+func DecodeServerNode(data []byte, typMap map[string]reflect.Type) (node *ServerNode, err error) {
 	if data == nil || len(data) == 0 {
 		return nil, errors.New("nil byte")
 	}
-	res, err := hessian.ToObject(data, javaClassHessianTypeMap)
+	res, err := hessian.ToObject(data, typMap)
 	if err != nil {
 		fmt.Println("failed decode bytes:", base64.StdEncoding.EncodeToString(data))
 		return nil, err
@@ -82,11 +72,17 @@ func DecodeServerNode(data []byte) (node *ServerNode, err error) {
 }
 
 //EncodeServerNode to bytes
-func EncodeServerNode(node *ServerNode) ([]byte, error) {
-	return hessian.ToBytes(*node, javaClassHessianNameMap)
+func EncodeServerNode(node *ServerNode, nameMap map[string]string) ([]byte, error) {
+	return hessian.ToBytes(*node, nameMap)
 }
 
 func TestHessianEncodeDecode(t *testing.T) {
+	serverNode := ServerNode{}
+	typeMap := hessian.TypeMapFrom(serverNode)
+	nameMap := hessian.NameMapFrom(serverNode)
+	fmt.Println(typeMap)
+	fmt.Println(nameMap)
+
 	node := &ServerNode{
 		Version: "v1",
 		Name:    "api",
@@ -99,7 +95,7 @@ func TestHessianEncodeDecode(t *testing.T) {
 		},
 	}
 
-	bt, err := EncodeServerNode(node)
+	bt, err := EncodeServerNode(node, nameMap)
 	if err != nil {
 		t.Error(err)
 		t.Fail()
@@ -107,12 +103,13 @@ func TestHessianEncodeDecode(t *testing.T) {
 
 	t.Log(base64.StdEncoding.EncodeToString(bt))
 
-	decodeNode, err := DecodeServerNode(bt)
+	decodeNode, err := DecodeServerNode(bt, typeMap)
 	if err != nil {
 		t.Error(err)
 		t.Fail()
 	}
 
+	assert.NotNil(t, decodeNode)
 	t.Log(decodeNode)
 	assert.Equal(t, node.Version, decodeNode.Version)
 	assert.Equal(t, node.Name, decodeNode.Name)

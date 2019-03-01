@@ -21,20 +21,20 @@ import (
 	"runtime"
 )
 
-// ErrDecoder is returned when the encoder encounters an error.
-type ErrDecoder struct {
+// CodecErr is returned when the codec encounters an error.
+type CodecErr struct {
 	Message string
 	Err     error
 }
 
-func (e ErrDecoder) Error() string {
+func (e CodecErr) Error() string {
 	if e.Err == nil {
-		return "cannot decode " + e.Message
+		return e.Message
 	}
-	return "cannot decode " + e.Message + ": " + e.Err.Error()
+	return e.Message + ": " + e.Err.Error()
 }
 
-func newCodecError(dataType string, a ...interface{}) *ErrDecoder {
+func newCodecError(dataType string, a ...interface{}) CodecErr {
 	var err error
 	var format, message string
 	var ok bool
@@ -48,7 +48,7 @@ func newCodecError(dataType string, a ...interface{}) *ErrDecoder {
 	caller := fmt.Sprintf("(%s:%d)", file, line)
 
 	if len(a) == 0 {
-		return &ErrDecoder{dataType + ": no reason given" + caller, nil}
+		return CodecErr{dataType + ": no reason given" + caller, nil}
 	}
 	// if last item is error: save it
 	if err, ok = a[len(a)-1].(error); ok {
@@ -64,5 +64,5 @@ func newCodecError(dataType string, a ...interface{}) *ErrDecoder {
 	if message != "" {
 		message = ": " + message
 	}
-	return &ErrDecoder{dataType + message + caller, err}
+	return CodecErr{dataType + message + caller, err}
 }

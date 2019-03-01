@@ -28,7 +28,9 @@ type CodecNamable interface {
 }
 
 //ValueExtractor extract info from struct value
-type ValueExtractor func(v reflect.Value)
+// return true to continue extracting process
+// return false to return current extracting process
+type ValueExtractor func(v reflect.Value) bool
 
 //TypeMapFrom instance
 func TypeMapFrom(v interface{}) map[string]reflect.Type {
@@ -38,14 +40,23 @@ func TypeMapFrom(v interface{}) map[string]reflect.Type {
 //ExtractTypeMap from reflect value
 func ExtractTypeMap(value reflect.Value) map[string]reflect.Type {
 	typMap := make(map[string]reflect.Type)
-	ExtractValue(value, func(v reflect.Value) {
+	ExtractValue(value, func(v reflect.Value) bool {
 		typ := v.Type()
+
+		if typ.Name() == "" {
+			return true
+		}
+
+		if _, ok := typMap[typ.Name()]; ok {
+			return false
+		}
+
 		typMap[typ.Name()] = typ
 
 		if n, ok := v.Interface().(CodecNamable); ok {
 			typMap[n.HessianCodecName()] = typ
 		}
-
+		return true
 	})
 	return typMap
 }
@@ -57,28 +68,41 @@ func NameMapFrom(v interface{}) map[string]string {
 
 //ExtractNameMap from reflect value
 func ExtractNameMap(value reflect.Value) map[string]string {
+	typMap := make(map[string]reflect.Type)
 	nameMap := make(map[string]string)
-	ExtractValue(value, func(v reflect.Value) {
+	ExtractValue(value, func(v reflect.Value) bool {
 		typ := v.Type()
+
+		if typ.Name() == "" {
+			return true
+		}
+		if _, ok := typMap[typ.Name()]; ok {
+			return false
+		}
+
+		typMap[typ.Name()] = typ
 		if n, ok := v.Interface().(CodecNamable); ok {
 			nameMap[typ.Name()] = n.HessianCodecName()
 		}
+		return true
 	})
 	return nameMap
 }
 
 //ExtractValue info
 func ExtractValue(v reflect.Value, extractor ValueExtractor) {
-	v = OriginalValue(v)
+	v = RawValue(v)
 
 	if IsRawKind(v.Kind()) {
 		return
 	}
 
-	extractor(v)
+	if !extractor(v) {
+		return
+	}
 
 	if v.Kind() == reflect.Array || v.Kind() == reflect.Slice {
-		itemTyp := OriginalType(v.Type().Elem())
+		itemTyp := UnpackPtrType(v.Type().Elem())
 		if IsRawKind(itemTyp.Kind()) {
 			return
 		}
@@ -96,8 +120,8 @@ func ExtractValue(v reflect.Value, extractor ValueExtractor) {
 
 	if v.Kind() == reflect.Map {
 		if v.Len() == 0 {
-			keyTyp := OriginalType(v.Type().Key())
-			valueTyp := OriginalType(v.Type().Elem())
+			keyTyp := UnpackPtrType(v.Type().Key())
+			valueTyp := UnpackPtrType(v.Type().Elem())
 			if !IsRawKind(keyTyp.Kind()) {
 				ExtractValue(reflect.New(keyTyp), extractor)
 			}
@@ -116,8 +140,7 @@ func ExtractValue(v reflect.Value, extractor ValueExtractor) {
 
 	if v.Kind() == reflect.Struct {
 		for i := 0; i < v.NumField(); i++ {
-			f := v.Field(i)
-			ExtractValue(f, extractor)
+			ExtractValue(v.Field(i), extractor)
 		}
 	}
 }
@@ -131,7 +154,7 @@ func TypeMapOf(typ reflect.Type) map[string]reflect.Type {
 
 //FetchType map
 func FetchType(typ reflect.Type, typMap map[string]reflect.Type) {
-	typ = OriginalType(typ)
+	typ = UnpackPtrType(typ)
 
 	if IsRawKind(typ.Kind()) {
 		return
@@ -159,24 +182,48 @@ func FetchType(typ reflect.Type, typMap map[string]reflect.Type) {
 
 }
 
-//OriginalType unpack pointer type to original type
-func OriginalType(typ reflect.Type) reflect.Type {
-	for typ.Kind() == reflect.Ptr {
-		typ = typ.Elem()
-	}
-	return typ
+//IsZero value
+func IsZero(v reflect.Value) bool {
+	return !v.IsValid() || reflect.DeepEqual(v.Interface(), reflect.Zero(v.Type()).Interface())
 }
 
-//OriginalValue unpack pointer value to original value
-func OriginalValue(v reflect.Value) reflect.Value {
+// RawValue unpack value to raw value.
+// NOTE: it may be the zero value
+// return value of pointer pointed if it's pointer
+func RawValue(v reflect.Value) reflect.Value {
 	for v.Kind() == reflect.Ptr {
 		v = v.Elem()
 	}
 	return v
 }
 
-//UnpackValue unpack reflect.Value
-func UnpackValue(in interface{}, err error) (interface{}, error) {
+//UnpackPtrType unpack pointer type to original type
+func UnpackPtrType(typ reflect.Type) reflect.Type {
+	for typ.Kind() == reflect.Ptr {
+		typ = typ.Elem()
+	}
+	return typ
+}
+
+// UnpackPtrValue unpack pointer value to original value
+// return the pointer if its elem is zero value, because lots of operations on zero value is invalid
+func UnpackPtrValue(v reflect.Value) reflect.Value {
+	for v.Kind() == reflect.Ptr && v.Elem().IsValid() {
+		v = v.Elem()
+	}
+	return v
+}
+
+//PackPtr pack a Ptr value
+func PackPtr(v reflect.Value) reflect.Value {
+	vv := reflect.New(v.Type())
+	vv.Elem().Set(v)
+	return vv
+}
+
+// EnsureInterface get value of reflect.Value
+// return original value if not reflect.Value
+func EnsureInterface(in interface{}, err error) (interface{}, error) {
 	if err != nil {
 		return in, err
 	}
@@ -193,6 +240,16 @@ func IsRawKind(k reflect.Kind) bool {
 		return false
 	default:
 		return true
+	}
+}
+
+//ElemKind check whether k is elem kind, a value of which kind can call func Elem()
+func ElemKind(k reflect.Kind) bool {
+	switch k {
+	case reflect.Array, reflect.Ptr, reflect.Interface:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -266,7 +323,7 @@ func EnsureUint64(i interface{}) uint64 {
 }
 
 //SetSlice set value into slice object
-func SetSlice(value reflect.Value, objects interface{}) error {
+func SetSlice(dst reflect.Value, objects interface{}) error {
 	if objects == nil {
 		return nil
 	}
@@ -274,15 +331,19 @@ func SetSlice(value reflect.Value, objects interface{}) error {
 	v := reflect.ValueOf(objects)
 	k := v.Type().Kind()
 	if k != reflect.Slice && k != reflect.Array {
-		return fmt.Errorf("expect slice type, but get %v, value: %v", k, objects)
+		return newCodecError("SetSlice", "expect slice type, but get %v, objects: %v", k, objects)
 	}
-	elemKind := value.Type().Elem().Kind()
+
+	dst = UnpackPtrValue(dst)
+	dstTyp := UnpackPtrType(dst.Type())
+
+	elemKind := dstTyp.Elem().Kind()
 	if objects == nil && v.Len() <= 0 {
 		return nil
 	}
 	if elemKind == reflect.Uint8 {
 		// for binary
-		value.Set(v)
+		dst.Set(v)
 		return nil
 	}
 	elemPtrType := elemKind == reflect.Ptr
@@ -290,13 +351,16 @@ func SetSlice(value reflect.Value, objects interface{}) error {
 	elemIntType := IntKind(elemKind)
 	elemUintType := UintKind(elemKind)
 
-	sl := reflect.MakeSlice(value.Type(), v.Len(), v.Len())
+	sl := reflect.MakeSlice(dstTyp, v.Len(), v.Len())
+	var itemValue reflect.Value
 	for i := 0; i < v.Len(); i++ {
 		item := v.Index(i).Interface()
-		itemValue := reflect.ValueOf(item)
-		if cv, ok := itemValue.Interface().(reflect.Value); ok {
+		if cv, ok := item.(reflect.Value); ok {
 			itemValue = cv
+		} else {
+			itemValue = reflect.ValueOf(item)
 		}
+
 		if !elemPtrType && itemValue.Kind() == reflect.Ptr {
 			itemValue = itemValue.Elem()
 		}
@@ -313,7 +377,7 @@ func SetSlice(value reflect.Value, objects interface{}) error {
 		}
 	}
 
-	value.Set(sl)
+	SetValue(dst, sl)
 	return nil
 }
 
@@ -329,4 +393,62 @@ func findField(name string, typ reflect.Type) (int, error) {
 		}
 	}
 	return 0, errors.New("no field " + name)
+}
+
+// SetValue set the value to dst.
+// It will auto check the Ptr pack level and unpack/pack to the right level.
+// It make sure success to set value
+func SetValue(dst, v reflect.Value) {
+	// if the kind of dst is Ptr, the original value will be zero value
+	// set value on zero value is not allowed
+	// unpack to one-level pointer
+	for dst.Kind() == reflect.Ptr && dst.Elem().Kind() == reflect.Ptr {
+		dst = dst.Elem()
+	}
+
+	// if the kind of dst is Ptr, change the v to a Ptr value too.
+	if dst.Kind() == reflect.Ptr {
+
+		// unpack to one-level pointer
+		for v.IsValid() && v.Kind() == reflect.Ptr && v.Elem().Kind() == reflect.Ptr {
+			v = v.Elem()
+		}
+
+		// zero value not need to set
+		if !v.IsValid() {
+			return
+		}
+
+		if v.Kind() != reflect.Ptr {
+			// change the v to a Ptr value
+			v = PackPtr(v)
+		}
+	} else {
+		v = UnpackPtrValue(v)
+	}
+
+	// zero value not need to set
+	if !v.IsValid() {
+		return
+	}
+
+	// set value as required type
+	dst.Set(v)
+}
+
+func AddrEqual(x, y interface{}) bool {
+	if x == nil || y == nil {
+		return x == y
+	}
+	v1 := reflect.ValueOf(x)
+	v2 := reflect.ValueOf(y)
+	if v1.Type() != v2.Type() {
+		return false
+	}
+
+	if v1.Kind() != reflect.Ptr {
+		v1 = PackPtr(v1)
+		v2 = PackPtr(v2)
+	}
+	return v1.Pointer() == v2.Pointer()
 }

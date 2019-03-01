@@ -27,7 +27,15 @@ const (
 )
 
 func (e *Encoder) writeMap(data interface{}) (int, error) {
+	// object data MUST not be unpacked
 	vv := reflect.ValueOf(data)
+
+	// check ref
+	if n, ok := e.checkEncodeRefMap(vv); ok {
+		return e.writeRef(n)
+	}
+
+	vv = UnpackPtrValue(vv)
 	typ := vv.Type()
 
 	mapName, ok := e.nameMap[typ.Name()]
@@ -73,22 +81,25 @@ func (e *Encoder) writeMap(data interface{}) (int, error) {
 	return count, nil
 }
 
-//ReadTypedMap read typed map
-func (d *Decoder) ReadTypedMap() (interface{}, error) {
+//readTypedMap read typed map
+func (d *Decoder) readTypedMap() (interface{}, error) {
 	typ, err := d.readType()
 	if err != nil {
 		return nil, newCodecError("ReadType", err)
 	}
 	mType, ok := d.typMap[typ]
 	if !ok {
-		return nil, newCodecError("ReadType", "no type map for ", typ)
+		return nil, newCodecError("ReadType", "no type map for %v", typ)
 	}
+
 	var mValue reflect.Value
 	if mType.Kind() == reflect.Map {
 		mValue = reflect.MakeMap(mType)
 	} else {
 		mValue = reflect.New(mType)
 	}
+
+	d.addDecoderRef(mValue)
 
 	for {
 		key, err := d.ReadData()
@@ -117,9 +128,11 @@ func (d *Decoder) ReadTypedMap() (interface{}, error) {
 	return m, nil
 }
 
-//ReadUntypedMap read untyped map
-func (d *Decoder) ReadUntypedMap() (interface{}, error) {
+//readUntypedMap read untyped map
+func (d *Decoder) readUntypedMap() (interface{}, error) {
 	m := make(map[interface{}]interface{})
+	d.addDecoderRef(reflect.ValueOf(m))
+
 	//read key and value
 	for {
 		key, err := d.ReadData()
@@ -141,14 +154,28 @@ func (d *Decoder) ReadUntypedMap() (interface{}, error) {
 
 func (d *Decoder) readMap(value reflect.Value) error {
 	tag, _ := d.readTag()
+
+	// read ref value if ref
+	if refTag(tag) {
+		r, err := d.readRef(tag)
+		if err != nil {
+			return err
+		}
+		SetValue(value, reflect.ValueOf(r))
+		return nil
+	}
+
 	if tag == MapTypedTag {
 		d.readString(TagRead)
 	} else if tag == MapUntypedTag {
 		//do nothing
 	} else {
-		return newCodecError("wrong header BC_MAP_UNTYPED")
+		return newCodecError("readMap", "unknown map tag: %x", tag)
 	}
+
+	value = UnpackPtrValue(value)
 	m := reflect.MakeMap(value.Type())
+	d.addDecoderRef(m)
 
 	//read key and value
 	for {
@@ -157,7 +184,7 @@ func (d *Decoder) readMap(value reflect.Value) error {
 			if err == io.EOF {
 				break
 			} else {
-				return newCodecError("ReadType", err)
+				return newCodecError("readMap", err)
 			}
 		}
 		vl, err := d.ReadData()

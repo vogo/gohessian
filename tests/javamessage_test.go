@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -42,23 +43,11 @@ func (Message) HessianCodecName() string {
 	return "tests.jobj.Message"
 }
 
-var (
-	message = Message{}
-
-	javaMessageHessianTypeMap = hessian.TypeMapFrom(message)
-	javaMessageHessianNameMap = hessian.NameMapFrom(message)
-)
-
-func init() {
-	fmt.Println(javaMessageHessianTypeMap)
-	fmt.Println(javaMessageHessianNameMap)
-}
-
-func decodeJavaMessage(data []byte) (msg *Message, err error) {
+func decodeJavaMessage(data []byte, typMap map[string]reflect.Type) (msg *Message, err error) {
 	if data == nil || len(data) == 0 {
 		return nil, errors.New("nil byte")
 	}
-	res, err := hessian.ToObject(data, javaMessageHessianTypeMap)
+	res, err := hessian.ToObject(data, typMap)
 	if err != nil {
 		fmt.Println("failed decode bytes:", base64.StdEncoding.EncodeToString(data))
 		return nil, err
@@ -71,11 +60,18 @@ func decodeJavaMessage(data []byte) (msg *Message, err error) {
 	return
 }
 
-func encodeJavaMessage(msg *Message) ([]byte, error) {
-	return hessian.ToBytes(*msg, javaMessageHessianNameMap)
+func encodeJavaMessage(msg *Message, nameMap map[string]string) ([]byte, error) {
+	return hessian.ToBytes(*msg, nameMap)
 }
 
 func TestJavaMessageEncode(t *testing.T) {
+	javaMessage := Message{}
+
+	typeMap := hessian.TypeMapFrom(javaMessage)
+	nameMap := hessian.NameMapFrom(javaMessage)
+	fmt.Println(typeMap)
+	fmt.Println(nameMap)
+
 	msg := &Message{
 		Title: "t1",
 		Msg: []TraceData{
@@ -94,7 +90,7 @@ func TestJavaMessageEncode(t *testing.T) {
 		},
 	}
 
-	bt, err := encodeJavaMessage(msg)
+	bt, err := encodeJavaMessage(msg, nameMap)
 	if err != nil {
 		t.Error(err)
 		t.Fail()
@@ -102,7 +98,7 @@ func TestJavaMessageEncode(t *testing.T) {
 
 	t.Log(base64.StdEncoding.EncodeToString(bt))
 	t.Log(string(bt))
-	decodeMsg, err := decodeJavaMessage(bt)
+	decodeMsg, err := decodeJavaMessage(bt, typeMap)
 	if err != nil {
 		t.Error(err)
 		t.Fail()
@@ -120,8 +116,11 @@ func TestJavaMessageDecode(t *testing.T) {
 	bytes, err := base64.StdEncoding.DecodeString(b64)
 	assert.Nil(t, err)
 
+	javaMessage := Message{}
+	typeMap := hessian.TypeMapFrom(javaMessage)
+
 	t.Log(string(bytes))
-	msg, err := decodeJavaMessage(bytes)
+	msg, err := decodeJavaMessage(bytes, typeMap)
 	assert.Nil(t, err)
 
 	t.Log(msg)

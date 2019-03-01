@@ -47,7 +47,6 @@ package hessian
 import (
 	"bufio"
 	"encoding/binary"
-	"fmt"
 	"io"
 	"math"
 	"unsafe"
@@ -131,7 +130,7 @@ func encodeLong(value int64) []byte {
 		byte(value)}
 }
 
-func LongTag(tag byte) bool {
+func longTag(tag byte) bool {
 	return (tag >= Long1ByteTagMin && tag <= Long1ByteTagMax) ||
 		(tag >= Long2ByteTagMin && tag <= Long2ByteTagMax) ||
 		(tag >= Long3ByteTagMin && tag <= Long3ByteTagMax) ||
@@ -219,5 +218,5 @@ func decodeLongValue(reader *bufio.Reader, flag int32) (int64, error) {
 		return i64, nil
 	}
 
-	return 0, fmt.Errorf("wrong long tag: %x", tag)
+	return 0, newCodecError("decodeLongValue", "wrong long tag: %x", tag)
 }

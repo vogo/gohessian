@@ -50,7 +50,6 @@ package hessian
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"io"
 	"strings"
 )
@@ -162,7 +161,7 @@ func decodeStringValue(reader *bufio.Reader, flag int32) (string, error) {
 		}
 
 		if !stringTag(tag) {
-			return "", fmt.Errorf("error string tag: %x", tag)
+			return "", newCodecError("decodeStringValue", "unknown string tag: %x", tag)
 		}
 
 		newLength, err := getStringLen(reader, tag)
@@ -224,5 +223,6 @@ func getStringLen(reader *bufio.Reader, tag byte) (int, error) {
 		return len, nil
 	}
 
-	return -1, fmt.Errorf("err string tag: %x", tag)
+	return -1, newCodecError("getStringLen", "err string tag: %x", tag)
+
 }
