@@ -1,6 +1,6 @@
 # gohessian
 
-Clone from [viant/gohessian](https://github.com/viant/gohessian) , and do the following works:
+Clone from [viant/gohessian](README_old.md) , and do the following works:
 - fix lots of bugs
 - large scope refactoring to let code structure simple and human-friendly
 - add [ref](http://hessian.caucho.com/doc/hessian-serialization.html##ref) feature implement
@@ -17,4 +17,3 @@ Clone from [viant/gohessian](https://github.com/viant/gohessian) , and do the fo
 
 ## Reference
 - [Hessian 2.0 Serialization Protocol](http://hessian.caucho.com/doc/hessian-serialization.html)
-- See [old README](README_old.md).

@@ -107,8 +107,7 @@ func TestUntypedMap(t *testing.T) {
 func TestTEncodeDecode(t *testing.T) {
 	configMaps := make(TConfigMap)
 
-	typeMap := hessian.TypeMapFrom(configMaps)
-	nameMap := hessian.NameMapFrom(configMaps)
+	typeMap, nameMap := hessian.ExtractTypeNameMap(configMaps)
 
 	fmt.Println(typeMap)
 	fmt.Println(nameMap)

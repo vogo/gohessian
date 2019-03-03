@@ -76,11 +76,7 @@ func Encode(object interface{}) ([]byte, error) {
 func ToObject(ins []byte, typMap map[string]reflect.Type) (interface{}, error) {
 	ioBuf := bufio.NewReader(bytes.NewReader(ins))
 	d := NewDecoder(ioBuf, typMap)
-	obj, err := d.ReadData()
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
+	return EnsureInterface(d.ReadData())
 }
 
 //Decode bytes to object

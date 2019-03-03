@@ -18,6 +18,8 @@
 
 package hessian
 
+import "reflect"
+
 const (
 	mask         = byte(127)
 	flag         = byte(128)
@@ -35,11 +37,43 @@ const (
 	PacketDirectMax = byte(0x7f)
 	PPacketShort    = byte(0x70)
 	PacketShortMax  = 0xfff
-
-	ArrayString = "[string"
-	ArrayInt    = "[int"
-	ArrayDouble = "[double"
-	ArrayFloat  = "[float"
-	ArrayBool   = "[boolean"
-	ArrayLong   = "[long"
 )
+
+var (
+	buildInTypes = make(map[string]reflect.Type)
+)
+
+func addBuildInType(i interface{}, keys ...string) {
+	typ := reflect.TypeOf(i)
+	name := typ.Name()
+	if name == "" {
+		panic("type name is nil for type " + typ.String())
+	}
+	buildInTypes[name] = typ
+	for _, key := range keys {
+		buildInTypes[key] = typ
+	}
+}
+
+func init() {
+	addBuildInType(byte('A'))
+
+	addBuildInType(" ")
+
+	addBuildInType(int(1))
+	addBuildInType(int8(1))
+	addBuildInType(int16(1))
+	addBuildInType(int32(1))
+
+	// java: long
+	addBuildInType(int64(1), "long")
+
+	addBuildInType(float32(1.0))
+
+	// java: double
+	addBuildInType(float64(1.0), "double")
+
+	// java: boolean
+	addBuildInType(true, "boolean")
+
+}

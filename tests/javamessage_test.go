@@ -56,7 +56,7 @@ func decodeJavaMessage(data []byte, typMap map[string]reflect.Type) (msg *Messag
 		msg = sn
 		return
 	}
-	err = errors.New("failed to decode Servermsg")
+	err = errors.New("failed to decode")
 	return
 }
 
@@ -65,10 +65,7 @@ func encodeJavaMessage(msg *Message, nameMap map[string]string) ([]byte, error) 
 }
 
 func TestJavaMessageEncode(t *testing.T) {
-	javaMessage := Message{}
-
-	typeMap := hessian.TypeMapFrom(javaMessage)
-	nameMap := hessian.NameMapFrom(javaMessage)
+	typeMap, nameMap := hessian.ExtractTypeNameMap(Message{})
 	fmt.Println(typeMap)
 	fmt.Println(nameMap)
 

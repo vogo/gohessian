@@ -342,7 +342,7 @@ func (d *Decoder) readField(fldName string, fldValue reflect.Value) error {
 		if err != nil {
 			return err
 		}
-		SetValue(sourceValue, reflect.ValueOf(s))
+		SetValue(sourceValue, EnsurePackValue(s))
 	case reflect.Map:
 		d.readMap(sourceValue)
 	case reflect.Slice, reflect.Array:

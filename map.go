@@ -99,7 +99,7 @@ func (d *Decoder) readTypedMap() (interface{}, error) {
 		mValue = reflect.New(mType)
 	}
 
-	d.addDecoderRef(mValue)
+	d.addDecoderRef(PackPtr(mValue))
 
 	for {
 		key, err := d.ReadData()
@@ -131,7 +131,7 @@ func (d *Decoder) readTypedMap() (interface{}, error) {
 //readUntypedMap read untyped map
 func (d *Decoder) readUntypedMap() (interface{}, error) {
 	m := make(map[interface{}]interface{})
-	d.addDecoderRef(reflect.ValueOf(m))
+	d.addDecoderRef(reflect.ValueOf(&m))
 
 	//read key and value
 	for {
@@ -152,7 +152,7 @@ func (d *Decoder) readUntypedMap() (interface{}, error) {
 	return m, nil
 }
 
-func (d *Decoder) readMap(value reflect.Value) error {
+func (d *Decoder) readMap(dest reflect.Value) error {
 	tag, _ := d.readTag()
 
 	// read ref value if ref
@@ -161,7 +161,7 @@ func (d *Decoder) readMap(value reflect.Value) error {
 		if err != nil {
 			return err
 		}
-		SetValue(value, reflect.ValueOf(r))
+		SetValue(dest, r)
 		return nil
 	}
 
@@ -173,9 +173,11 @@ func (d *Decoder) readMap(value reflect.Value) error {
 		return newCodecError("readMap", "unknown map tag: %x", tag)
 	}
 
-	value = UnpackPtrValue(value)
-	m := reflect.MakeMap(value.Type())
-	d.addDecoderRef(m)
+	mapTyp := UnpackPtrType(dest.Type())
+	m := reflect.MakeMap(mapTyp)
+	mapValue := PackPtr(m)
+
+	d.addDecoderRef(mapValue)
 
 	//read key and value
 	for {
@@ -188,8 +190,8 @@ func (d *Decoder) readMap(value reflect.Value) error {
 			}
 		}
 		vl, err := d.ReadData()
-		m.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(vl))
+		m.SetMapIndex(EnsurePackValue(key), EnsurePackValue(vl))
 	}
-	value.Set(m)
+	SetValue(dest, mapValue)
 	return nil
 }

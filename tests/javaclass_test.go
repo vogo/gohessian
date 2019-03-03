@@ -77,9 +77,7 @@ func EncodeServerNode(node *ServerNode, nameMap map[string]string) ([]byte, erro
 }
 
 func TestHessianEncodeDecode(t *testing.T) {
-	serverNode := ServerNode{}
-	typeMap := hessian.TypeMapFrom(serverNode)
-	nameMap := hessian.NameMapFrom(serverNode)
+	typeMap, nameMap := hessian.ExtractTypeNameMap(ServerNode{})
 	fmt.Println(typeMap)
 	fmt.Println(nameMap)
 

@@ -22,6 +22,11 @@ import (
 	"strings"
 )
 
+var (
+	_zeroBoolPinter *bool
+	_zeroValue      = reflect.ValueOf(_zeroBoolPinter).Elem()
+)
+
 //CodecNamable to define codec name for hessian
 type CodecNamable interface {
 	HessianCodecName() string
@@ -34,59 +39,40 @@ type ValueExtractor func(v reflect.Value) bool
 
 //TypeMapFrom instance
 func TypeMapFrom(v interface{}) map[string]reflect.Type {
-	return ExtractTypeMap(reflect.ValueOf(v))
-}
-
-//ExtractTypeMap from reflect value
-func ExtractTypeMap(value reflect.Value) map[string]reflect.Type {
-	typMap := make(map[string]reflect.Type)
-	ExtractValue(value, func(v reflect.Value) bool {
-		typ := v.Type()
-
-		if typ.Name() == "" {
-			return true
-		}
-
-		if _, ok := typMap[typ.Name()]; ok {
-			return false
-		}
-
-		typMap[typ.Name()] = typ
-
-		if n, ok := v.Interface().(CodecNamable); ok {
-			typMap[n.HessianCodecName()] = typ
-		}
-		return true
-	})
+	typMap, _ := ExtractTypeNameMap(v)
 	return typMap
 }
 
 //NameMapFrom instance
 func NameMapFrom(v interface{}) map[string]string {
-	return ExtractNameMap(reflect.ValueOf(v))
+	_, nameMap := ExtractTypeNameMap(v)
+	return nameMap
 }
 
-//ExtractNameMap from reflect value
-func ExtractNameMap(value reflect.Value) map[string]string {
+//ExtractTypeNameMap from reflect value
+func ExtractTypeNameMap(v interface{}) (map[string]reflect.Type, map[string]string) {
+	value := reflect.ValueOf(v)
 	typMap := make(map[string]reflect.Type)
 	nameMap := make(map[string]string)
 	ExtractValue(value, func(v reflect.Value) bool {
 		typ := v.Type()
-
-		if typ.Name() == "" {
-			return true
+		name := typ.Name()
+		if name == "" {
+			name = typ.String()
 		}
-		if _, ok := typMap[typ.Name()]; ok {
+		if _, ok := typMap[name]; ok {
 			return false
 		}
 
-		typMap[typ.Name()] = typ
+		typMap[name] = typ
+
 		if n, ok := v.Interface().(CodecNamable); ok {
-			nameMap[typ.Name()] = n.HessianCodecName()
+			nameMap[name] = n.HessianCodecName()
+			typMap[n.HessianCodecName()] = typ
 		}
 		return true
 	})
-	return nameMap
+	return typMap, nameMap
 }
 
 //ExtractValue info
@@ -221,6 +207,17 @@ func PackPtr(v reflect.Value) reflect.Value {
 	return vv
 }
 
+//EnsurePackValue pack the interface with value
+func EnsurePackValue(i interface{}) reflect.Value {
+	if v, ok := i.(reflect.Value); ok {
+		if r, ok := v.Interface().(*_refHolder); ok {
+			return r.value
+		}
+		return v
+	}
+	return reflect.ValueOf(i)
+}
+
 // EnsureInterface get value of reflect.Value
 // return original value if not reflect.Value
 func EnsureInterface(in interface{}, err error) (interface{}, error) {
@@ -228,7 +225,13 @@ func EnsureInterface(in interface{}, err error) (interface{}, error) {
 		return in, err
 	}
 	if v, ok := in.(reflect.Value); ok {
-		return v.Interface(), nil
+		in = v.Interface()
+	}
+	if v, ok := in.(*_refHolder); ok {
+		in = v.value.Interface()
+	}
+	if v, ok := in.(reflect.Value); ok {
+		in = v.Interface()
 	}
 	return in, nil
 }
@@ -323,19 +326,24 @@ func EnsureUint64(i interface{}) uint64 {
 }
 
 //SetSlice set value into slice object
-func SetSlice(dst reflect.Value, objects interface{}) error {
+func SetSlice(dest reflect.Value, objects interface{}) error {
 	if objects == nil {
 		return nil
 	}
 
-	v := reflect.ValueOf(objects)
+	v := EnsurePackValue(objects)
+	if h, ok := v.Interface().(*_refHolder); ok {
+		h.add(dest)
+		return nil
+	}
+
 	k := v.Type().Kind()
 	if k != reflect.Slice && k != reflect.Array {
 		return newCodecError("SetSlice", "expect slice type, but get %v, objects: %v", k, objects)
 	}
 
-	dst = UnpackPtrValue(dst)
-	dstTyp := UnpackPtrType(dst.Type())
+	dest = UnpackPtrValue(dest)
+	dstTyp := UnpackPtrType(dest.Type())
 
 	elemKind := dstTyp.Elem().Kind()
 	if objects == nil && v.Len() <= 0 {
@@ -343,7 +351,7 @@ func SetSlice(dst reflect.Value, objects interface{}) error {
 	}
 	if elemKind == reflect.Uint8 {
 		// for binary
-		dst.Set(v)
+		dest.Set(v)
 		return nil
 	}
 	elemPtrType := elemKind == reflect.Ptr
@@ -373,11 +381,12 @@ func SetSlice(dst reflect.Value, objects interface{}) error {
 		case elemUintType:
 			sl.Index(i).SetUint(EnsureUint64(itemValue.Interface()))
 		default:
-			sl.Index(i).Set(itemValue)
+			//sl.Index(i).Set(itemValue)
+			SetValue(sl.Index(i), itemValue)
 		}
 	}
 
-	SetValue(dst, sl)
+	SetValue(dest, sl)
 	return nil
 }
 
@@ -395,19 +404,27 @@ func findField(name string, typ reflect.Type) (int, error) {
 	return 0, errors.New("no field " + name)
 }
 
-// SetValue set the value to dst.
+// SetValue set the value to dest.
 // It will auto check the Ptr pack level and unpack/pack to the right level.
 // It make sure success to set value
-func SetValue(dst, v reflect.Value) {
-	// if the kind of dst is Ptr, the original value will be zero value
-	// set value on zero value is not allowed
-	// unpack to one-level pointer
-	for dst.Kind() == reflect.Ptr && dst.Elem().Kind() == reflect.Ptr {
-		dst = dst.Elem()
+func SetValue(dest, v reflect.Value) {
+	// check whether the v is a ref holder
+	if v.IsValid() {
+		if h, ok := v.Interface().(*_refHolder); ok {
+			h.add(dest)
+			return
+		}
 	}
 
-	// if the kind of dst is Ptr, change the v to a Ptr value too.
-	if dst.Kind() == reflect.Ptr {
+	// if the kind of dest is Ptr, the original value will be zero value
+	// set value on zero value is not allowed
+	// unpack to one-level pointer
+	for dest.Kind() == reflect.Ptr && dest.Elem().Kind() == reflect.Ptr {
+		dest = dest.Elem()
+	}
+
+	// if the kind of dest is Ptr, change the v to a Ptr value too.
+	if dest.Kind() == reflect.Ptr {
 
 		// unpack to one-level pointer
 		for v.IsValid() && v.Kind() == reflect.Ptr && v.Elem().Kind() == reflect.Ptr {
@@ -433,7 +450,7 @@ func SetValue(dst, v reflect.Value) {
 	}
 
 	// set value as required type
-	dst.Set(v)
+	dest.Set(v)
 }
 
 func AddrEqual(x, y interface{}) bool {

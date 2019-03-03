@@ -16,6 +16,7 @@
 package hessian
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -107,7 +108,12 @@ type personT struct {
 	Likes     *personsT
 	Relations []*personT
 	Parent    *personT
-	Marks     map[string]*personT
+	Marks     *map[string]*personT
+	Tags      map[string]*personT
+}
+
+func logRefObject(t *testing.T, n string, i interface{}) {
+	t.Log(n, i)
 }
 
 func TestComplexLevelRef(t *testing.T) {
@@ -131,13 +137,20 @@ func TestComplexLevelRef(t *testing.T) {
 	p3.Relations = relations
 	p4.Relations = relations
 
-	marks := map[string]*personT{
+	marks := &map[string]*personT{
 		"beautiful": p1,
 		"tall":      p2,
 		"fat":       p3,
 	}
 	p4.Marks = marks
 	p5.Marks = marks
+
+	tags := map[string]*personT{
+		"man":   p3,
+		"woman": p4,
+	}
+	p5.Tags = tags
+	p6.Tags = tags
 
 	decoded := doTestRef(t, p1, "person")
 
@@ -160,6 +173,13 @@ func TestComplexLevelRef(t *testing.T) {
 	assert.NotNil(t, d5)
 	assert.NotNil(t, d6)
 
+	logRefObject(t, "d1:", d1)
+	logRefObject(t, "d2:", d2)
+	logRefObject(t, "d3:", d3)
+	logRefObject(t, "d4:", d4)
+	logRefObject(t, "d5:", d5)
+	logRefObject(t, "d6:", d6)
+
 	assert.Equal(t, p1.Name, d1.Name)
 	assert.Equal(t, p2.Name, d2.Name)
 	assert.Equal(t, p3.Name, d3.Name)
@@ -175,11 +195,18 @@ func TestComplexLevelRef(t *testing.T) {
 	assert.True(t, AddrEqual(d5, d3.Relations[0]))
 	assert.True(t, AddrEqual(d6, d3.Relations[1]))
 
-	//assert.True(t, AddrEqual(d3.Relations, d4.Relations))
-	//
-	//assert.Equal(t, 3, len(d4.Marks))
-	//assert.True(t, AddrEqual(p1, d4.Marks["beautiful"]))
-	//assert.True(t, AddrEqual(p2, d4.Marks["tall"]))
-	//assert.True(t, AddrEqual(p3, d4.Marks["fat"]))
-	//assert.True(t, AddrEqual(d4.Marks, d5.Marks))
+	//value equal
+	assert.True(t, reflect.DeepEqual(d3.Relations, d4.Relations))
+
+	assert.Equal(t, 3, len(*d4.Marks))
+	assert.True(t, AddrEqual(d4.Marks, d5.Marks))
+	assert.True(t, AddrEqual(d1, (*d4.Marks)["beautiful"]))
+	assert.True(t, AddrEqual(d2, (*d4.Marks)["tall"]))
+	assert.True(t, AddrEqual(d3, (*d4.Marks)["fat"]))
+
+	assert.Equal(t, 2, len(d5.Tags))
+	assert.True(t, reflect.DeepEqual(d5.Tags, d6.Tags))
+	assert.False(t, AddrEqual(d5.Tags, d6.Tags))
+	assert.True(t, AddrEqual(d3, d5.Tags["man"]))
+	assert.True(t, AddrEqual(d4, d5.Tags["woman"]))
 }

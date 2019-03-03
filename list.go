@@ -177,7 +177,7 @@ func (d *Decoder) ReadList() (interface{}, error) {
 func (d *Decoder) readTypedList(tag byte) (interface{}, error) {
 	listTyp, err := d.readType()
 	if err != nil {
-		return nil, newCodecError("readTypedList", err)
+		return nil, newCodecError("readTypedList", "read list type: %s", listTyp, err)
 	}
 
 	isVariableArr := tag == ListVariableTypedTag
@@ -197,7 +197,7 @@ func (d *Decoder) readTypedList(tag byte) (interface{}, error) {
 		return nil, newCodecError("readTypedList", "expect typed list tag, but get %x", tag)
 	}
 
-	isBuildInType(listTyp)
+	//isBuildInType(listTyp)
 
 	// read first array item
 	it, err := d.ReadData()
@@ -213,7 +213,7 @@ func (d *Decoder) readTypedList(tag byte) (interface{}, error) {
 	aryType := reflect.SliceOf(reflect.TypeOf(it))
 	aryValue := reflect.MakeSlice(aryType, length, length)
 	aryValue.Index(0).Set(reflect.ValueOf(it))
-	d.addDecoderRef(aryValue)
+	holder := d.addDecoderRef(aryValue)
 
 	for j := 1; j < length || isVariableArr; j++ {
 		it, err := d.ReadData()
@@ -227,12 +227,14 @@ func (d *Decoder) readTypedList(tag byte) (interface{}, error) {
 		v := reflect.ValueOf(it)
 		if isVariableArr {
 			aryValue = reflect.Append(aryValue, v)
+			holder.change(aryValue)
 		} else {
 			aryValue.Index(j).Set(v)
 		}
 	}
 
-	return aryValue.Interface(), nil
+	// return reflect.Value for list
+	return aryValue, nil
 }
 
 //readUntypedList read untyped list
@@ -259,7 +261,8 @@ func (d *Decoder) readUntypedList(tag byte) (interface{}, error) {
 	}
 
 	ary := make([]interface{}, length)
-	d.addDecoderRef(reflect.ValueOf(ary))
+	aryValue := reflect.ValueOf(ary)
+	holder := d.addDecoderRef(aryValue)
 
 	for j := 0; j < length || isVariableArr; j++ {
 		it, err := d.ReadData()
@@ -271,11 +274,13 @@ func (d *Decoder) readUntypedList(tag byte) (interface{}, error) {
 		}
 
 		if isVariableArr {
-			ary = append(ary, it)
+			aryValue = reflect.Append(aryValue, reflect.ValueOf(it))
+			holder.change(aryValue)
 		} else {
 			ary[j] = it
 		}
 	}
 
-	return ary, nil
+	// return reflect.Value for list
+	return aryValue, nil
 }

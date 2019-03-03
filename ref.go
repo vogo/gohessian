@@ -18,13 +18,13 @@
 // Writers MAY generate refs. Parsers MUST be able to recognize them.
 //
 // ref can refer to incompletely-read items.
-// For example, a circularT linked-list will refer to the first link before the entire list has been read.
+// For example, a circular linked-list will refer to the first link before the entire value has been read.
 //
 // A possible implementation would add each map, list, and object to an array as it is read.
 // The ref will return the corresponding value from the array.
-// To support circularT structures, the implementation would store the map, list or object immediately, before filling in the contents.
+// To support circular structures, the implementation would store the map, list or object immediately, before filling in the contents.
 //
-// Each map or list is stored into an array as it is parsed. ref selects one of the stored objects. The first object is numbered '0'.
+// Each map or value is stored into an array as it is parsed. ref selects one of the stored objects. The first object is numbered '0'.
 //
 //
 // -----------> Ref Examples
@@ -33,7 +33,7 @@
 //
 // list = new LinkedList();
 // list.data = 1;
-// list.tail = list;
+// list.tail = value;
 //
 // ---
 // C
@@ -91,22 +91,60 @@ func (e *Encoder) checkEncodeRefMap(v reflect.Value) (int, bool) {
 	return 0, false
 }
 
-func (d *Decoder) addDecoderRef(v reflect.Value) {
-	// fmt.Printf("addDecoderRef: %v, %v, %p\n", v.Type(), v.Interface(), v.Interface())
-	d.refList = append(d.refList, v)
+type _refHolder struct {
+	// destinations
+	destinations []reflect.Value
+
+	value reflect.Value
 }
 
-func (d *Decoder) readRef(tag byte) (interface{}, error) {
+var _refHolderType = reflect.TypeOf(_refHolder{})
+
+// notice all destinations ref to the value if it changes
+func (h *_refHolder) change(v reflect.Value) {
+	if h.value.CanAddr() && v.CanAddr() && h.value.Pointer() == v.Pointer() {
+		return
+	}
+	h.value = v
+	for _, dest := range h.destinations {
+		SetValue(dest, v)
+	}
+}
+
+// add destination
+func (h *_refHolder) add(dest reflect.Value) {
+	h.destinations = append(h.destinations, dest)
+	SetValue(dest, h.value)
+}
+
+func (d *Decoder) addDecoderRef(v reflect.Value) *_refHolder {
+	//fmt.Printf("addDecoderRef: %v, %v, %p\n", v.Type(), v.Interface(), v.Interface())
+	var holder *_refHolder
+	// only slice and array need ref holder , for its address changes when decoding
+	if v.Kind() == reflect.Slice || v.Kind() == reflect.Array {
+		holder = &_refHolder{
+			value: v,
+		}
+		v = reflect.ValueOf(holder)
+	}
+	d.refList = append(d.refList, v)
+	return holder
+}
+
+// read the ref reflect.Value , which may be one of type _refHolder
+func (d *Decoder) readRef(tag byte) (reflect.Value, error) {
 	if tag != refStartTag {
-		return nil, newCodecError("readRef", "should be ref tag: %x, but got %x", tag, refStartTag)
+		return _zeroValue, newCodecError("readRef", "should be ref tag: %x, but got %x", tag, refStartTag)
 	}
 	index, err := d.readInt(TagRead)
 	if err != nil {
-		return nil, err
+		return _zeroValue, err
 	}
 	idx := int(index)
 	if len(d.refList) <= idx {
-		return nil, newCodecError("readRef", "ref index out of bound, max %d, but got %d", len(d.refList), index)
+		return _zeroValue, newCodecError("readRef", "ref index out of bound, max %d, but got %d", len(d.refList), index)
 	}
-	return d.refList[idx].Interface(), nil
+
+	ref := d.refList[idx]
+	return ref, nil
 }

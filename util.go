@@ -46,15 +46,6 @@ func capitalizeName(name string) string {
 	return name
 }
 
-func isBuildInType(typeStr string) bool {
-	switch typeStr {
-	case ArrayString, ArrayInt, ArrayFloat, ArrayDouble, ArrayBool, ArrayLong:
-		return true
-	default:
-		return false
-	}
-}
-
 func getTag(reader *bufio.Reader, flag int32) (byte, error) {
 	if flag != TagRead {
 		return byte(flag), nil
@@ -89,4 +80,16 @@ func readRunes(reader io.RuneReader, buf []rune) (int, error) {
 		buf[i] = r
 	}
 	return i, nil
+}
+
+// arrayName format may be '[string' or '[]string'
+// this func will remove the bracket prefix
+func arrayElemName(arrayName string) string{
+	if arrayName[0] == '['{
+		arrayName = arrayName[1:]
+	}
+	if arrayName[0] == ']'{
+		arrayName = arrayName[1:]
+	}
+	return arrayName
 }

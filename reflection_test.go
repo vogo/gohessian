@@ -34,10 +34,13 @@ func TestIsZero(t *testing.T) {
 	assert.False(t, v.IsValid())
 	assert.True(t, IsZero(v))
 
-	var b bool
-	assert.False(t, b)
+	var b *bool
 	bv := reflect.ValueOf(b)
 	assert.True(t, bv.IsValid())
+	assert.True(t, IsZero(bv))
+
+	bv = bv.Elem()
+	assert.False(t, bv.IsValid())
 	assert.True(t, IsZero(bv))
 }
 
