@@ -20,17 +20,17 @@ import (
 )
 
 const (
-	BoolTrueTag  = byte('T')
-	BoolFalseTag = byte('F')
+	_boolTrueTag  = byte('T')
+	_boolFalseTag = byte('F')
 )
 
 // see: http://hessian.caucho.com/doc/hessian-serialization.html##boolean
 func encodeBoolean(value bool) []byte {
 	buf := make([]byte, 1)
 	if value {
-		buf[0] = BoolTrueTag
+		buf[0] = _boolTrueTag
 	} else {
-		buf[0] = BoolFalseTag
+		buf[0] = _boolFalseTag
 	}
 	return buf
 }
@@ -41,9 +41,9 @@ func decodeBooleanValue(reader *bufio.Reader, flag int32) (bool, error) {
 		return false, err
 	}
 	switch tag {
-	case BoolTrueTag:
+	case _boolTrueTag:
 		return true, nil
-	case BoolFalseTag:
+	case _boolFalseTag:
 		return false, nil
 	}
 	return false, newCodecError("decodeBooleanValue", "wrong boolean tag: %x", tag)

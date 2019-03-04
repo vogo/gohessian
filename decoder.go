@@ -106,7 +106,7 @@ func (d *Decoder) ReadObjectWithType(typ reflect.Type, name string) (interface{}
 		hlog.Debugf("overwrite existing type: %s", name)
 	}
 	d.typMap[name] = typ
-	return d.ReadData()
+	return EnsureInterface(d.ReadData())
 }
 
 func (d *Decoder) readBoolean(flag int32) (bool, error) {
@@ -141,15 +141,15 @@ func (d *Decoder) readStruct() (interface{}, error) {
 	}
 
 	switch {
-	case tag == EndFlag:
+	case tag == _endFlag:
 		return nil, io.EOF
-	case tag == BcNull:
+	case tag == _nilTag:
 		return nil, nil
-	case tag == objectDefTag:
+	case tag == _objectDefTag:
 		return d.readObjectDef()
 	case objectLenTag(tag):
 		return d.ReadLenTagObject(tag)
-	case tag == objectTag:
+	case tag == _objectTag:
 		return d.readTagObject()
 	case refTag(tag):
 		return d.readRef(tag)
@@ -167,13 +167,13 @@ func (d *Decoder) ReadData() (interface{}, error) {
 	}
 
 	switch {
-	case tag == EndFlag:
+	case tag == _endFlag:
 		return nil, io.EOF
-	case tag == BcNull:
+	case tag == _nilTag:
 		return nil, nil
-	case tag == BoolTrueTag:
+	case tag == _boolTrueTag:
 		return true, nil
-	case tag == BoolFalseTag:
+	case tag == _boolFalseTag:
 		return false, nil
 	case intTag(tag):
 		return d.readInt(int32(tag))
@@ -187,15 +187,15 @@ func (d *Decoder) ReadData() (interface{}, error) {
 		return d.readBinary(int32(tag))
 	case refTag(tag):
 		return d.readRef(tag)
-	case tag == MapTypedTag:
+	case tag == _mapTypedTag:
 		return d.readTypedMap()
-	case tag == MapUntypedTag:
+	case tag == _mapUntypedTag:
 		return d.readUntypedMap()
-	case tag == objectDefTag:
+	case tag == _objectDefTag:
 		return d.readObjectDef()
 	case objectLenTag(tag):
 		return d.ReadLenTagObject(tag)
-	case tag == objectTag:
+	case tag == _objectTag:
 		return d.readTagObject()
 	case typedListTag(tag):
 		return d.readTypedList(tag)

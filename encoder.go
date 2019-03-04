@@ -67,14 +67,14 @@ func (e *Encoder) Reset() {
 //WriteData write object
 func (e *Encoder) WriteData(data interface{}) (int, error) {
 	if data == nil {
-		e.writeBT(BcNull)
+		e.writeBT(_nilTag)
 		return 1, nil
 	}
 	source := data
 	v := UnpackPtrValue(reflect.ValueOf(data))
 
 	if !IsRawKind(v.Kind()) && IsZero(v) {
-		e.writeBT(BcNull)
+		e.writeBT(_nilTag)
 		return 1, nil
 	}
 

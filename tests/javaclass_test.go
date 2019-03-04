@@ -18,7 +18,6 @@ package tests
 import (
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"reflect"
 	"testing"
 
@@ -54,13 +53,13 @@ func (ServerNode) HessianCodecName() string {
 }
 
 //DecodeServerNode from hessian encode bytes
-func DecodeServerNode(data []byte, typMap map[string]reflect.Type) (node *ServerNode, err error) {
+func DecodeServerNode(t *testing.T, data []byte, typMap map[string]reflect.Type) (node *ServerNode, err error) {
 	if data == nil || len(data) == 0 {
 		return nil, errors.New("nil byte")
 	}
 	res, err := hessian.ToObject(data, typMap)
 	if err != nil {
-		fmt.Println("failed decode bytes:", base64.StdEncoding.EncodeToString(data))
+		t.Log("failed decode bytes:", base64.StdEncoding.EncodeToString(data))
 		return nil, err
 	}
 	if sn, ok := res.(*ServerNode); ok {
@@ -72,14 +71,14 @@ func DecodeServerNode(data []byte, typMap map[string]reflect.Type) (node *Server
 }
 
 //EncodeServerNode to bytes
-func EncodeServerNode(node *ServerNode, nameMap map[string]string) ([]byte, error) {
+func EncodeServerNode(t *testing.T, node *ServerNode, nameMap map[string]string) ([]byte, error) {
 	return hessian.ToBytes(*node, nameMap)
 }
 
 func TestHessianEncodeDecode(t *testing.T) {
 	typeMap, nameMap := hessian.ExtractTypeNameMap(ServerNode{})
-	fmt.Println(typeMap)
-	fmt.Println(nameMap)
+	t.Log(typeMap)
+	t.Log(nameMap)
 
 	node := &ServerNode{
 		Version: "v1",
@@ -93,7 +92,7 @@ func TestHessianEncodeDecode(t *testing.T) {
 		},
 	}
 
-	bt, err := EncodeServerNode(node, nameMap)
+	bt, err := EncodeServerNode(t, node, nameMap)
 	if err != nil {
 		t.Error(err)
 		t.Fail()
@@ -101,7 +100,7 @@ func TestHessianEncodeDecode(t *testing.T) {
 
 	t.Log(base64.StdEncoding.EncodeToString(bt))
 
-	decodeNode, err := DecodeServerNode(bt, typeMap)
+	decodeNode, err := DecodeServerNode(t, bt, typeMap)
 	if err != nil {
 		t.Error(err)
 		t.Fail()

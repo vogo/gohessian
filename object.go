@@ -110,15 +110,15 @@ import (
 )
 
 const (
-	objectTag       = byte('O')
-	objectDefTag    = byte('C')
-	objectLenTagMin = byte(0x60)
-	objectLenTagMax = byte(0x6f)
-	objectTagMaxLen = objectLenTagMax - objectLenTagMin
+	_objectTag       = byte('O')
+	_objectDefTag    = byte('C')
+	_objectLenTagMin = byte(0x60)
+	_objectLenTagMax = byte(0x6f)
+	_objectTagMaxLen = _objectLenTagMax - _objectLenTagMin
 )
 
 func objectLenTag(tag byte) bool {
-	return tag >= objectLenTagMin && tag <= objectLenTagMax
+	return tag >= _objectLenTagMin && tag <= _objectLenTagMax
 }
 
 //see: http://hessian.caucho.com/doc/hessian-serialization.html##object
@@ -143,12 +143,12 @@ func (e *Encoder) writeObject(data interface{}) (int, error) {
 	if !ok {
 		length, _ = e.writeClsDef(typ, clsName)
 	}
-	if byte(length) <= objectTagMaxLen {
-		// NOTE: when length=2, length+objectLenTagMin='b', the same as the binary chunk start with,
+	if byte(length) <= _objectTagMaxLen {
+		// NOTE: when length=2, length+_objectLenTagMin='b', the same as the binary chunk start with,
 		// which will be special processed in decoder
-		e.writeBT(byte(length) + objectLenTagMin)
+		e.writeBT(byte(length) + _objectLenTagMin)
 	} else {
-		e.writeBT(objectTag)
+		e.writeBT(_objectTag)
 		e.writeInt(int32(length))
 	}
 	for i := 0; i < vv.NumField(); i++ {
@@ -161,7 +161,7 @@ func (e *Encoder) writeObject(data interface{}) (int, error) {
 }
 
 func (e *Encoder) writeClsDef(typ reflect.Type, clsName string) (int, error) {
-	e.writeBT(objectDefTag)
+	e.writeBT(_objectDefTag)
 	e.writeString(clsName)
 	fldList := make([]string, typ.NumField())
 	e.writeInt(int32(len(fldList)))
@@ -186,18 +186,18 @@ func (e *Encoder) existClassDef(clsName string) (int, bool) {
 }
 
 func (d *Decoder) readClassDef() (interface{}, error) {
-	clsName, err := d.readString(TagRead)
+	clsName, err := d.readString(_tagRead)
 	if err != nil {
 		return nil, newCodecError("ReadClassDef", err)
 	}
-	count, err := d.readInt(TagRead)
+	count, err := d.readInt(_tagRead)
 	if err != nil {
 		return nil, newCodecError("ReadClassDef", err)
 	}
 
 	fields := make([]string, count)
 	for i := 0; i < int(count); i++ {
-		s, err := d.readString(TagRead)
+		s, err := d.readString(_tagRead)
 		if err != nil {
 			return nil, newCodecError("ReadClassDef", err)
 		}
@@ -209,7 +209,7 @@ func (d *Decoder) readClassDef() (interface{}, error) {
 
 //readTagObject read tag object
 func (d *Decoder) readTagObject() (interface{}, error) {
-	i, _ := d.readInt(TagRead)
+	i, _ := d.readInt(_tagRead)
 	idx := int(i)
 	clsD := d.clsDefList[idx]
 	typ, ok := d.typMap[clsD.FullClassName]
@@ -221,7 +221,10 @@ func (d *Decoder) readTagObject() (interface{}, error) {
 
 //ReadLenTagObject read length tag object
 func (d *Decoder) ReadLenTagObject(tag byte) (interface{}, error) {
-	i := int(tag - objectLenTagMin)
+	i := int(tag - _objectLenTagMin)
+	if i >= len(d.clsDefList) {
+		return nil, newCodecError("ReadLenTagObject", "cls def ref index %d over max %d", i, len(d.clsDefList))
+	}
 	clsD := d.clsDefList[i]
 	typ, ok := d.typMap[clsD.FullClassName]
 	if !ok {
@@ -250,7 +253,7 @@ func (d *Decoder) readObjectDef() (interface{}, error) {
 		return d.ReadLenTagObject(tag)
 	}
 
-	if tag == objectTag {
+	if tag == _objectTag {
 		return d.readTagObject()
 	}
 	return nil, newCodecError("readObjectDef", "unknown tag after class def: %x", tag)
@@ -281,7 +284,7 @@ func (d *Decoder) readObject(typ reflect.Type, cls ClassDef) (interface{}, error
 			return nil, newCodecError("readObject", "failed to decode field %s", fldName, err)
 		}
 
-		// fmt.Printf("after add field %s: %v, %v, %p\n", fldName, vv.Type(), vv.Interface(), vv.Interface())
+		//fmt.Printf("====> after add field %s: %v, %v, %p\n", fldName, vv.Type(), vv.Interface(), vv.Interface())
 	}
 	return vv, nil
 }
@@ -292,7 +295,7 @@ func (d *Decoder) readField(fldName string, fldValue reflect.Value) error {
 	fldValue = UnpackPtrValue(fldValue)
 	switch typ.Kind() {
 	case reflect.String:
-		str, err := d.readString(TagRead)
+		str, err := d.readString(_tagRead)
 		if err != nil {
 			return err
 		}
@@ -300,39 +303,39 @@ func (d *Decoder) readField(fldName string, fldValue reflect.Value) error {
 			fldValue.SetString(str)
 		}
 	case reflect.Int32, reflect.Int, reflect.Int16, reflect.Int8:
-		i, err := d.readInt(TagRead)
+		i, err := d.readInt(_tagRead)
 		if err != nil {
 			return err
 		}
 		v := int64(i)
 		fldValue.SetInt(v)
 	case reflect.Uint8, reflect.Uint16:
-		i, err := d.readInt(TagRead)
+		i, err := d.readInt(_tagRead)
 		if err != nil {
 			return err
 		}
 		v := uint64(i)
 		fldValue.SetUint(v)
 	case reflect.Int64:
-		i, err := d.readLong(TagRead)
+		i, err := d.readLong(_tagRead)
 		if err != nil {
 			return err
 		}
 		fldValue.SetInt(i)
 	case reflect.Uint64, reflect.Uint, reflect.Uint32:
-		i, err := d.readLong(TagRead)
+		i, err := d.readLong(_tagRead)
 		if err != nil {
 			return err
 		}
 		fldValue.SetUint(uint64(i))
 	case reflect.Bool:
-		b, err := d.readBoolean(TagRead)
+		b, err := d.readBoolean(_tagRead)
 		if err != nil {
 			return err
 		}
 		fldValue.SetBool(b)
 	case reflect.Float32, reflect.Float64:
-		f, err := d.readDouble(TagRead)
+		f, err := d.readDouble(_tagRead)
 		if err != nil {
 			return err
 		}
@@ -342,7 +345,7 @@ func (d *Decoder) readField(fldName string, fldValue reflect.Value) error {
 		if err != nil {
 			return err
 		}
-		SetValue(sourceValue, EnsurePackValue(s))
+		SetValue(sourceValue, EnsureRawValue(s))
 	case reflect.Map:
 		d.readMap(sourceValue)
 	case reflect.Slice, reflect.Array:

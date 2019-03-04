@@ -81,19 +81,21 @@ import (
 )
 
 const (
-	ListVariableTypedTag   = byte(0x55)
-	ListVariableUntypedTag = byte(0x57)
+	_listVariableTypedTag   = byte(0x55)
+	_listVariableUntypedTag = byte(0x57)
 
-	ListFixedTypedStartTag    = byte('V')
-	ListFixedUntypedTag       = byte(0x58)
-	ListFixedTypedLenTagMin   = byte(0x70)
-	ListFixedTypedLenTagMax   = byte(0x77)
-	ListFixedUntypedLenTagMin = byte(0x78)
-	ListFixedUntypedLenTagMax = byte(0x7f)
+	_listFixedTypedStartTag    = byte('V')
+	_listFixedUntypedTag       = byte(0x58)
+	_listFixedTypedLenTagMin   = byte(0x70)
+	_listFixedTypedLenTagMax   = byte(0x77)
+	_listFixedTypedLenMax      = _listFixedTypedLenTagMax - _listFixedTypedLenTagMin
+	_listFixedUntypedLenTagMin = byte(0x78)
+	_listFixedUntypedLenTagMax = byte(0x7f)
+	_listFixedUntypedLenMax    = _listFixedUntypedLenTagMax - _listFixedUntypedLenTagMin
 )
 
 func listFixedTypedLenTag(tag byte) bool {
-	return tag >= ListFixedTypedLenTagMin && tag <= ListFixedTypedLenTagMax
+	return tag >= _listFixedTypedLenTagMin && tag <= _listFixedTypedLenTagMax
 }
 
 // Include 3 formats:
@@ -101,11 +103,11 @@ func listFixedTypedLenTag(tag byte) bool {
 //      ::= 'V' type int value*   # fixed-length list
 //      ::= [x70-77] type value*  # fixed-length typed list
 func typedListTag(tag byte) bool {
-	return tag == ListFixedTypedStartTag || tag == ListVariableTypedTag || listFixedTypedLenTag(tag)
+	return tag == _listFixedTypedStartTag || tag == _listVariableTypedTag || listFixedTypedLenTag(tag)
 }
 
 func listFixedUntypedLenTag(tag byte) bool {
-	return tag >= ListFixedUntypedLenTagMin && tag <= ListFixedUntypedLenTagMax
+	return tag >= _listFixedUntypedLenTagMin && tag <= _listFixedUntypedLenTagMax
 }
 
 // Include 3 formats:
@@ -113,10 +115,10 @@ func listFixedUntypedLenTag(tag byte) bool {
 //      ::= x58 int value*        # fixed-length untyped list
 //      ::= [x78-7f] value*       # fixed-length untyped list
 func untypedListTag(tag byte) bool {
-	return tag == ListFixedUntypedTag || tag == ListVariableUntypedTag || listFixedUntypedLenTag(tag)
+	return tag == _listFixedUntypedTag || tag == _listVariableUntypedTag || listFixedUntypedLenTag(tag)
 }
 
-// only write as fixed-length untyped list
+// write as fixed-length list
 func (e *Encoder) writeList(data interface{}) (int, error) {
 	if bt, ok := data.([]byte); ok {
 		return e.writeBinary(bt)
@@ -133,8 +135,25 @@ func (e *Encoder) writeList(data interface{}) (int, error) {
 	// unpack to parser values
 	vv = UnpackPtrValue(vv)
 
-	e.writeBT(ListFixedUntypedTag)
-	e.writeInt(int32(vv.Len()))
+	typ := UnpackPtrType(vv.Type())
+	arrayTypeName := TypeName(typ)
+	listTypeName, ok := e.nameMap[arrayTypeName]
+
+	if !ok || _interfaceTypeName == arrayRootElemName(arrayTypeName) {
+		// fixed-length untyped list
+		e.writeBT(_listFixedUntypedTag)
+		e.writeInt(int32(vv.Len()))
+	} else if byte(vv.Len()) <= _listFixedTypedLenMax {
+		// fixed-length typed list
+		e.writeBT(_listFixedTypedLenTagMin + byte(vv.Len()))
+		e.writeString(listTypeName)
+	} else {
+		// fixed-length
+		e.writeBT(_listFixedTypedStartTag)
+		e.writeString(listTypeName)
+		e.writeInt(int32(vv.Len()))
+	}
+
 	for i := 0; i < vv.Len(); i++ {
 		e.WriteData(vv.Index(i).Interface())
 	}
@@ -162,7 +181,7 @@ func (d *Decoder) ReadList() (interface{}, error) {
 		return d.readTypedList(tag)
 	case untypedListTag(tag):
 		return d.readUntypedList(tag)
-	case tag == BcNull:
+	case tag == _nilTag:
 		return nil, nil
 	default:
 		return nil, newCodecError("ReadList", "expect list tag but get %x", tag)
@@ -180,42 +199,44 @@ func (d *Decoder) readTypedList(tag byte) (interface{}, error) {
 		return nil, newCodecError("readTypedList", "read list type: %s", listTyp, err)
 	}
 
-	isVariableArr := tag == ListVariableTypedTag
+	isVariableArr := tag == _listVariableTypedTag
 
-	var length int
+	length := -1
 	if listFixedTypedLenTag(tag) {
-		length = int(tag - ListFixedTypedLenTagMin)
-	} else if tag == ListFixedTypedStartTag {
-		ii, err := d.readInt(TagRead)
+		length = int(tag - _listFixedTypedLenTagMin)
+	} else if tag == _listFixedTypedStartTag {
+		ii, err := d.readInt(_tagRead)
 		if err != nil {
 			return nil, newCodecError("readTypedList", err)
 		}
 		length = int(ii)
 	} else if isVariableArr {
-		length = 1
+		length = 0
 	} else {
 		return nil, newCodecError("readTypedList", "expect typed list tag, but get %x", tag)
 	}
 
-	//isBuildInType(listTyp)
-
-	// read first array item
-	it, err := d.ReadData()
-	if err != nil {
-		return nil, newCodecError("readTypedList", err)
-	}
+	//
+	//// read first array item
+	//it, err := d.ReadData()
+	//if err != nil {
+	//	return nil, newCodecError("readTypedList", err)
+	//}
 
 	// return when no element
-	if length <= 0 || it == nil {
+	if length < 0 {
 		return nil, nil
 	}
 
-	aryType := reflect.SliceOf(reflect.TypeOf(it))
+	aryType, ok := d.typMap[listTyp]
+	if !ok {
+		return nil, newCodecError("readTypedList", "can't find list type %s", listTyp)
+	}
+
 	aryValue := reflect.MakeSlice(aryType, length, length)
-	aryValue.Index(0).Set(reflect.ValueOf(it))
 	holder := d.addDecoderRef(aryValue)
 
-	for j := 1; j < length || isVariableArr; j++ {
+	for j := 0; j < length || isVariableArr; j++ {
 		it, err := d.ReadData()
 		if err != nil {
 			if err == io.EOF && isVariableArr {
@@ -224,17 +245,20 @@ func (d *Decoder) readTypedList(tag byte) (interface{}, error) {
 			return nil, newCodecError("readTypedList", err)
 		}
 
-		v := reflect.ValueOf(it)
+		if it == nil {
+			break
+		}
+
+		v := EnsureRawValue(it)
 		if isVariableArr {
 			aryValue = reflect.Append(aryValue, v)
 			holder.change(aryValue)
 		} else {
-			aryValue.Index(j).Set(v)
+			SetValue(aryValue.Index(j), v)
 		}
 	}
 
-	// return reflect.Value for list
-	return aryValue, nil
+	return holder, nil
 }
 
 //readUntypedList read untyped list
@@ -243,13 +267,13 @@ func (d *Decoder) readTypedList(tag byte) (interface{}, error) {
 //      ::= x58 int value*        # fixed-length untyped list
 //      ::= [x78-7f] value*       # fixed-length untyped list
 func (d *Decoder) readUntypedList(tag byte) (interface{}, error) {
-	isVariableArr := tag == ListVariableUntypedTag
+	isVariableArr := tag == _listVariableUntypedTag
 
 	var length int
 	if listFixedUntypedLenTag(tag) {
-		length = int(tag - ListFixedUntypedLenTagMin)
-	} else if tag == ListFixedUntypedTag {
-		ii, err := d.readInt(TagRead)
+		length = int(tag - _listFixedUntypedLenTagMin)
+	} else if tag == _listFixedUntypedTag {
+		ii, err := d.readInt(_tagRead)
 		if err != nil {
 			return nil, newCodecError("readUntypedList", err)
 		}
@@ -274,13 +298,12 @@ func (d *Decoder) readUntypedList(tag byte) (interface{}, error) {
 		}
 
 		if isVariableArr {
-			aryValue = reflect.Append(aryValue, reflect.ValueOf(it))
+			aryValue = reflect.Append(aryValue, EnsureRawValue(it))
 			holder.change(aryValue)
 		} else {
 			ary[j] = it
 		}
 	}
 
-	// return reflect.Value for list
-	return aryValue, nil
+	return holder, nil
 }

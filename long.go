@@ -53,56 +53,56 @@ import (
 )
 
 const (
-	LongStartTag = byte('L') // 64-bit signed integer
+	_longStartTag = byte('L') // 64-bit signed integer
 
-	Long1ByteTagMin    = 0xd8
-	Long1ByteTagMax    = 0xef
-	Long1ByteZero      = byte(0xe0)
-	Long1ByteZeroInt64 = int64(Long1ByteZero)
-	Long1ByteValueMin  = -0x08      // -8
-	Long1ByteValueMax  = byte(0x0f) // 15
-	Long1ByteMinInt64  = int64(Long1ByteValueMin)
-	Long1ByteMaxInt64  = int64(Long1ByteValueMax)
+	_long1ByteTagMin    = 0xd8
+	_long1ByteTagMax    = 0xef
+	_long1ByteZero      = byte(0xe0)
+	_long1ByteZeroInt64 = int64(_long1ByteZero)
+	_long1ByteValueMin  = -0x08      // -8
+	_long1ByteValueMax  = byte(0x0f) // 15
+	_long1ByteMinInt64  = int64(_long1ByteValueMin)
+	_long1ByteMaxInt64  = int64(_long1ByteValueMax)
 
-	Long2ByteTagMin        = 0xf0
-	Long2ByteTagMax        = 0xff
-	Long2ByteZero          = byte(0xf8)
-	Long2ByteZeroInt64     = int64(Long2ByteZero)
-	Long2ByteValueMin      = -0x800 // -2048
-	Long2ByteValueMax      = 0x7ff  // 2047
-	Long2ByteValueMinInt64 = int64(Long2ByteValueMin)
-	Long2ByteValueMaxInt64 = int64(Long2ByteValueMax)
+	_long2ByteTagMin        = 0xf0
+	_long2ByteTagMax        = 0xff
+	_long2ByteZero          = byte(0xf8)
+	_long2ByteZeroInt64     = int64(_long2ByteZero)
+	_long2ByteValueMin      = -0x800 // -2048
+	_long2ByteValueMax      = 0x7ff  // 2047
+	_long2ByteValueMinInt64 = int64(_long2ByteValueMin)
+	_long2ByteValueMaxInt64 = int64(_long2ByteValueMax)
 
-	Long3ByteTagMin        = 0x38
-	Long3ByteTagMax        = 0x3f
-	Long3ByteValueMin      = -0x40000 // -262144
-	Long3ByteValueMax      = 0x3ffff  // 262143
-	Long3ByteZero          = byte(0x3c)
-	Long3ByteValueMinInt64 = int64(Long3ByteValueMin)
-	Long3ByteValueMaxInt64 = int64(Long3ByteValueMax)
-	Long3ByteZeroInt64     = int64(Long3ByteZero)
+	_long3ByteTagMin        = 0x38
+	_long3ByteTagMax        = 0x3f
+	_long3ByteValueMin      = -0x40000 // -262144
+	_long3ByteValueMax      = 0x3ffff  // 262143
+	_long3ByteZero          = byte(0x3c)
+	_long3ByteValueMinInt64 = int64(_long3ByteValueMin)
+	_long3ByteValueMaxInt64 = int64(_long3ByteValueMax)
+	_long3ByteZeroInt64     = int64(_long3ByteZero)
 
-	Long4ByteStartTag = byte(0x59)
+	_long4ByteStartTag = byte(0x59)
 )
 
 // see: http://hessian.caucho.com/doc/hessian-serialization.html##long
 func encodeLong(value int64) []byte {
 	// 1 octet longs
-	if Long1ByteMinInt64 <= value && value <= Long1ByteMaxInt64 {
-		return []byte{byte(Long1ByteZeroInt64 + value)}
+	if _long1ByteMinInt64 <= value && value <= _long1ByteMaxInt64 {
+		return []byte{byte(_long1ByteZeroInt64 + value)}
 	}
 
 	// 2 octet longs
-	if Long2ByteValueMinInt64 <= value && value <= Long2ByteValueMaxInt64 {
+	if _long2ByteValueMinInt64 <= value && value <= _long2ByteValueMaxInt64 {
 		return []byte{
-			byte(Long2ByteZeroInt64 + (value >> 8)),
+			byte(_long2ByteZeroInt64 + (value >> 8)),
 			byte(value)}
 	}
 
 	// 3 octet longs
-	if Long3ByteValueMinInt64 <= value && value <= Long3ByteValueMaxInt64 {
+	if _long3ByteValueMinInt64 <= value && value <= _long3ByteValueMaxInt64 {
 		return []byte{
-			byte(Long3ByteZeroInt64 + (value >> 16)),
+			byte(_long3ByteZeroInt64 + (value >> 16)),
 			byte(value >> 8),
 			byte(value)}
 	}
@@ -110,7 +110,7 @@ func encodeLong(value int64) []byte {
 	// 4 octet longs
 	if math.MinInt32 <= value && value <= math.MaxInt32 {
 		return []byte{
-			Long4ByteStartTag,
+			_long4ByteStartTag,
 			byte(value >> 24),
 			byte(value >> 16),
 			byte(value >> 8),
@@ -119,7 +119,7 @@ func encodeLong(value int64) []byte {
 
 	// 8 octet longs
 	return []byte{
-		LongStartTag,
+		_longStartTag,
 		byte(value >> 56),
 		byte(value >> 48),
 		byte(value >> 40),
@@ -131,15 +131,15 @@ func encodeLong(value int64) []byte {
 }
 
 func longTag(tag byte) bool {
-	return (tag >= Long1ByteTagMin && tag <= Long1ByteTagMax) ||
-		(tag >= Long2ByteTagMin && tag <= Long2ByteTagMax) ||
-		(tag >= Long3ByteTagMin && tag <= Long3ByteTagMax) ||
-		(tag == Long4ByteStartTag) ||
-		(tag == LongStartTag)
+	return (tag >= _long1ByteTagMin && tag <= _long1ByteTagMax) ||
+		(tag >= _long2ByteTagMin && tag <= _long2ByteTagMax) ||
+		(tag >= _long3ByteTagMin && tag <= _long3ByteTagMax) ||
+		(tag == _long4ByteStartTag) ||
+		(tag == _longStartTag)
 }
 
 func decodeLong(reader *bufio.Reader) (int64, error) {
-	return decodeLongValue(reader, TagRead)
+	return decodeLongValue(reader, _tagRead)
 }
 
 func decodeLongValue(reader *bufio.Reader, flag int32) (int64, error) {
@@ -149,20 +149,20 @@ func decodeLongValue(reader *bufio.Reader, flag int32) (int64, error) {
 	}
 
 	// 1 octet longs
-	if tag >= Long1ByteTagMin && tag <= Long1ByteTagMax {
-		u8 := uint8(tag - Long1ByteZero)
+	if tag >= _long1ByteTagMin && tag <= _long1ByteTagMax {
+		u8 := uint8(tag - _long1ByteZero)
 		i8 := *(*int8)(unsafe.Pointer(&u8))
 		return int64(i8), nil
 	}
 
 	// 2 octet longs
-	if tag >= Long2ByteTagMin && tag <= Long2ByteTagMax {
+	if tag >= _long2ByteTagMin && tag <= _long2ByteTagMax {
 		bf := make([]byte, 1)
 		if _, err := io.ReadFull(reader, bf); err != nil {
 			return 0, err
 		}
 
-		by := []byte{byte(tag - Long2ByteZero), bf[0]}
+		by := []byte{byte(tag - _long2ByteZero), bf[0]}
 		u16 := binary.BigEndian.Uint16(by)
 		i16 := *(*int16)(unsafe.Pointer(&u16))
 
@@ -170,13 +170,13 @@ func decodeLongValue(reader *bufio.Reader, flag int32) (int64, error) {
 	}
 
 	// 3 octet longs
-	if tag >= Long3ByteTagMin && tag <= Long3ByteTagMax {
+	if tag >= _long3ByteTagMin && tag <= _long3ByteTagMax {
 		bf := make([]byte, 2)
 		if _, err := io.ReadFull(reader, bf); err != nil {
 			return 0, err
 		}
 
-		b := byte(tag - Long3ByteZero)
+		b := byte(tag - _long3ByteZero)
 		var fb byte
 		if b&0x08 > 0 {
 			fb = 0xFF
@@ -191,7 +191,7 @@ func decodeLongValue(reader *bufio.Reader, flag int32) (int64, error) {
 	}
 
 	// 4 octet longs
-	if tag == Long4ByteStartTag {
+	if tag == _long4ByteStartTag {
 		bf := make([]byte, 4)
 		if _, err := io.ReadFull(reader, bf); err != nil {
 			return 0, err
@@ -205,7 +205,7 @@ func decodeLongValue(reader *bufio.Reader, flag int32) (int64, error) {
 	}
 
 	// 8 octet longs
-	if tag == LongStartTag {
+	if tag == _longStartTag {
 		bf := make([]byte, 8)
 		if _, err := io.ReadFull(reader, bf); err != nil {
 			return 0, err

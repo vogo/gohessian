@@ -26,7 +26,7 @@ func lowerName(name string) (string, error) {
 	}
 	if name[0] >= 'A' && name[0] <= 'Z' {
 		bs := make([]byte, len(name))
-		bs[0] = byte(name[0] + AsciiGap)
+		bs[0] = byte(name[0] + _asciiGap)
 		copy(bs[1:], name[1:])
 		return string(bs), nil
 	}
@@ -39,7 +39,7 @@ func capitalizeName(name string) string {
 	}
 	if name[0] >= 'a' && name[0] <= 'z' {
 		bs := make([]byte, len(name))
-		bs[0] = byte(name[0] - AsciiGap)
+		bs[0] = byte(name[0] - _asciiGap)
 		copy(bs[1:], name[1:])
 		return string(bs)
 	}
@@ -47,7 +47,7 @@ func capitalizeName(name string) string {
 }
 
 func getTag(reader *bufio.Reader, flag int32) (byte, error) {
-	if flag != TagRead {
+	if flag != _tagRead {
 		return byte(flag), nil
 	}
 	return readTag(reader)
@@ -80,16 +80,4 @@ func readRunes(reader io.RuneReader, buf []rune) (int, error) {
 		buf[i] = r
 	}
 	return i, nil
-}
-
-// arrayName format may be '[string' or '[]string'
-// this func will remove the bracket prefix
-func arrayElemName(arrayName string) string{
-	if arrayName[0] == '['{
-		arrayName = arrayName[1:]
-	}
-	if arrayName[0] == ']'{
-		arrayName = arrayName[1:]
-	}
-	return arrayName
 }

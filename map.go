@@ -12,8 +12,66 @@
 // WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 // License for the specific language governing permissions and limitations under
 // the License.
-
+//
 // see: http://hessian.caucho.com/doc/hessian-serialization.html##map
+//
+// Map Grammar
+//
+// map        ::= M type (value value)* Z
+//
+// Represents serialized maps and can represent objects. The type element describes the type of the map.
+// The type may be empty, i.e. a zero length.
+// The parser is responsible for choosing a type if one is not specified. For objects, unrecognized keys will be ignored.
+// Each map is added to the reference list. Any time the parser expects a map, it must also be able to support a null or a ref.
+// The type is chosen by the service.
+//
+//
+// -------------- Map examples
+//
+// A sparse array
+//
+// map = new HashMap();
+// map.put(new Integer(1), "fee");
+// map.put(new Integer(16), "fie");
+// map.put(new Integer(256), "foe");
+//
+// ---
+//
+// H           # untyped map (HashMap for Java)
+// x91       # 1
+// x03 fee   # "fee"
+//
+// xa0       # 16
+// x03 fie   # "fie"
+//
+// xc9 x00   # 256
+// x03 foe   # "foe"
+//
+// Z
+//
+//  ----------------------------
+// Map Representation of a Java Object
+//
+// public class Car implements Serializable {
+// String color = "aquamarine";
+// String model = "Beetle";
+// int mileage = 65536;
+// }
+//
+// ---
+// M
+// x13 com.caucho.test.Car  # type
+//
+// x05 color                # color field
+// x0a aquamarine
+//
+// x05 model                # model field
+// x06 Beetle
+//
+// x07 mileage              # mileage field
+// I x00 x01 x00 x00
+// Z
+
 package hessian
 
 import (
@@ -22,8 +80,8 @@ import (
 )
 
 const (
-	MapTypedTag   = byte('M')
-	MapUntypedTag = byte('H')
+	_mapTypedTag   = byte('M')
+	_mapUntypedTag = byte('H')
 )
 
 func (e *Encoder) writeMap(data interface{}) (int, error) {
@@ -40,10 +98,10 @@ func (e *Encoder) writeMap(data interface{}) (int, error) {
 
 	mapName, ok := e.nameMap[typ.Name()]
 	if ok {
-		e.writeBT(MapTypedTag)
+		e.writeBT(_mapTypedTag)
 		e.writeString(mapName)
 	} else {
-		e.writeBT(MapUntypedTag)
+		e.writeBT(_mapUntypedTag)
 	}
 
 	count := 0
@@ -76,7 +134,7 @@ func (e *Encoder) writeMap(data interface{}) (int, error) {
 		}
 	}
 
-	e.writeBT(EndFlag)
+	e.writeBT(_endFlag)
 
 	return count, nil
 }
@@ -114,12 +172,15 @@ func (d *Decoder) readTypedMap() (interface{}, error) {
 			return nil, err
 		}
 		if mType.Kind() == reflect.Map {
-			mValue.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(value))
+			mValue.SetMapIndex(EnsureRawValue(key), EnsureRawValue(value))
 		} else {
-			fieldName, _ := key.(string)
+			fieldName, ok := key.(string)
+			if !ok {
+				return nil, newCodecError("readTypedMap", "the type of map key must be string, but get [%v]", key)
+			}
 			fieldValue := mValue.FieldByName(fieldName)
 			if fieldValue.IsValid() {
-				fieldValue.Set(reflect.ValueOf(value))
+				fieldValue.Set(EnsureRawValue(value))
 			}
 		}
 	}
@@ -135,7 +196,7 @@ func (d *Decoder) readUntypedMap() (interface{}, error) {
 
 	//read key and value
 	for {
-		key, err := d.ReadData()
+		key, err := EnsureInterface(d.ReadData())
 		if err != nil {
 			if err == io.EOF {
 				break
@@ -143,10 +204,11 @@ func (d *Decoder) readUntypedMap() (interface{}, error) {
 			return nil, err
 
 		}
-		value, err := d.ReadData()
+		value, err := EnsureInterface(d.ReadData())
 		if err != nil {
 			return nil, err
 		}
+
 		m[key] = value
 	}
 	return m, nil
@@ -165,9 +227,9 @@ func (d *Decoder) readMap(dest reflect.Value) error {
 		return nil
 	}
 
-	if tag == MapTypedTag {
-		d.readString(TagRead)
-	} else if tag == MapUntypedTag {
+	if tag == _mapTypedTag {
+		d.readString(_tagRead)
+	} else if tag == _mapUntypedTag {
 		//do nothing
 	} else {
 		return newCodecError("readMap", "unknown map tag: %x", tag)
@@ -190,7 +252,11 @@ func (d *Decoder) readMap(dest reflect.Value) error {
 			}
 		}
 		vl, err := d.ReadData()
-		m.SetMapIndex(EnsurePackValue(key), EnsurePackValue(vl))
+		if err != nil {
+			return err
+		}
+		m.SetMapIndex(EnsureRawValue(key), EnsureRawValue(vl))
+		//m.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(vl))
 	}
 	SetValue(dest, mapValue)
 	return nil

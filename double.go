@@ -53,12 +53,12 @@ import (
 )
 
 const (
-	DoubleStartTag = byte('D') // IEEE 64-bit double
-	DoubleZeroTag  = byte(0x5b)
-	DoubleOneTag   = byte(0x5c)
-	DoubleByteTag  = byte(0x5d)
-	DoubleShortTag = byte(0x5e)
-	DoubleMillTag  = byte(0x5f)
+	_doubleStartTag = byte('D') // IEEE 64-bit double
+	_doubleZeroTag  = byte(0x5b)
+	_doubleOneTag   = byte(0x5c)
+	_doubleByteTag  = byte(0x5d)
+	_doubleShortTag = byte(0x5e)
+	_doubleMillTag  = byte(0x5f)
 )
 
 // see: http://hessian.caucho.com/doc/hessian-serialization.html##double
@@ -67,24 +67,24 @@ func encodeDouble(value float64) ([]byte, error) {
 	if v == value {
 		iv := int64(value)
 		if iv == 0 {
-			return []byte{DoubleZeroTag}, nil
+			return []byte{_doubleZeroTag}, nil
 		}
 		if iv == 1 {
-			return []byte{DoubleOneTag}, nil
+			return []byte{_doubleOneTag}, nil
 		}
 
 		if iv >= -0x80 && iv < 0x80 {
-			return []byte{DoubleByteTag, byte(iv)}, nil
+			return []byte{_doubleByteTag, byte(iv)}, nil
 		}
 
 		if iv >= -0x8000 && iv < 0x8000 {
-			return []byte{DoubleByteTag, byte(iv >> 8), byte(iv)}, nil
+			return []byte{_doubleByteTag, byte(iv >> 8), byte(iv)}, nil
 		}
 		return nil, newCodecError("encodeDouble", "unsupported double range: %v", iv)
 	}
 
 	bits := uint64(math.Float64bits(value))
-	return []byte{DoubleStartTag,
+	return []byte{_doubleStartTag,
 		byte(bits >> 56),
 		byte(bits >> 48),
 		byte(bits >> 40),
@@ -97,7 +97,7 @@ func encodeDouble(value float64) ([]byte, error) {
 
 func doubleTag(tag byte) bool {
 	switch tag {
-	case Long4ByteStartTag, DoubleMillTag, DoubleZeroTag, DoubleOneTag, DoubleByteTag, DoubleShortTag, DoubleStartTag, BcDateMinute:
+	case _long4ByteStartTag, _doubleMillTag, _doubleZeroTag, _doubleOneTag, _doubleByteTag, _doubleShortTag, _doubleStartTag, _dateMinute:
 		return true
 	default:
 		return false
@@ -111,29 +111,29 @@ func decodeDoubleValue(reader *bufio.Reader, flag int32) (float64, error) {
 	}
 
 	switch tag {
-	case Long4ByteStartTag, DoubleMillTag:
+	case _long4ByteStartTag, _doubleMillTag:
 		i32, err := decodeInt(reader)
 		if err != nil {
 			return 0, err
 		}
 		return float64(i32), nil
-	case DoubleZeroTag:
+	case _doubleZeroTag:
 		return float64(0), nil
-	case DoubleOneTag:
+	case _doubleOneTag:
 		return float64(1), nil
-	case DoubleByteTag:
+	case _doubleByteTag:
 		bt, err := readTag(reader)
 		if err != nil {
 			return 0, err
 		}
 		return float64(bt), nil
-	case DoubleShortTag:
+	case _doubleShortTag:
 		bf, err := readBytes(reader, 2)
 		if err != nil {
 			return 0, err
 		}
 		return float64(int(bf[0])*256 + int(bf[1])), nil
-	case DoubleStartTag:
+	case _doubleStartTag:
 		buf, err := readBytes(reader, 8)
 		if err != nil {
 			return 0, err
@@ -141,7 +141,7 @@ func decodeDoubleValue(reader *bufio.Reader, flag int32) (float64, error) {
 		bits := binary.BigEndian.Uint64(buf)
 		datum := math.Float64frombits(bits)
 		return datum, nil
-	case BcDateMinute:
+	case _dateMinute:
 		return 0, newCodecError("decodeDoubleValue", "date minute decode not yet implemented")
 	}
 

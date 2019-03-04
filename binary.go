@@ -41,48 +41,48 @@ import (
 )
 
 const (
-	BinaryChunkSize      = 4096
-	BinaryFinalChunk     = byte('B')  // final chunk
-	BinaryChunk          = byte('b')  // non-final chunk
-	BinaryShortLenTagMin = byte(0x20) // 1-byte length binary min
-	BinaryShortLenTagMax = byte(0x2f) // 1-byte length binary max
-	BinaryShortTagMaxLen = int(BinaryShortLenTagMax - BinaryShortLenTagMin)
+	_binaryChunkSize      = 4096
+	_binaryFinalChunk     = byte('B')  // final chunk
+	_binaryChunk          = byte('b')  // non-final chunk
+	_binaryShortLenTagMin = byte(0x20) // 1-byte length binary min
+	_binaryShortLenTagMax = byte(0x2f) // 1-byte length binary max
+	_binaryShortTagMaxLen = int(_binaryShortLenTagMax - _binaryShortLenTagMin)
 )
 
 var (
-	binChunkSize         = BinaryChunkSize
-	BinaryChunkSizeBytes = []byte{byte(binChunkSize >> 8), byte(binChunkSize)}
+	_binChunkSize         = _binaryChunkSize
+	_binaryChunkSizeBytes = []byte{byte(_binChunkSize >> 8), byte(_binChunkSize)}
 )
 
 func encodeBinary(value []byte) []byte {
 	length := len(value)
 	if length == 0 {
-		return []byte{BinaryShortLenTagMin}
+		return []byte{_binaryShortLenTagMin}
 	}
 
 	byteBuf := bytes.NewBuffer(nil)
 
 	// ----> chunk binary
 	begin := 0
-	for length > BinaryChunkSize {
-		byteBuf.WriteByte(BinaryChunk)
-		byteBuf.Write(BinaryChunkSizeBytes)
+	for length > _binaryChunkSize {
+		byteBuf.WriteByte(_binaryChunk)
+		byteBuf.Write(_binaryChunkSizeBytes)
 
-		byteBuf.Write(value[begin : begin+BinaryChunkSize])
+		byteBuf.Write(value[begin : begin+_binaryChunkSize])
 
-		length -= BinaryChunkSize
-		begin += BinaryChunkSize
+		length -= _binaryChunkSize
+		begin += _binaryChunkSize
 	}
 
 	// ----> short binary
-	if length <= BinaryShortTagMaxLen {
-		byteBuf.WriteByte(byte(int(BinaryShortLenTagMin) + length))
+	if length <= _binaryShortTagMaxLen {
+		byteBuf.WriteByte(byte(int(_binaryShortLenTagMin) + length))
 		byteBuf.Write(value[begin:])
 		return byteBuf.Bytes()
 	}
 
 	// ----> final chunk binary
-	byteBuf.WriteByte(byte(BinaryFinalChunk))
+	byteBuf.WriteByte(byte(_binaryFinalChunk))
 	byteBuf.WriteByte(byte(length >> 8))
 	byteBuf.WriteByte(byte(length))
 	byteBuf.Write(value[begin:])
@@ -90,7 +90,7 @@ func encodeBinary(value []byte) []byte {
 }
 
 func decodeBinary(reader *bufio.Reader) ([]byte, error) {
-	return decodeBinaryValue(reader, TagRead)
+	return decodeBinaryValue(reader, _tagRead)
 }
 
 func decodeBinaryValue(reader *bufio.Reader, flag int32) ([]byte, error) {
@@ -100,7 +100,7 @@ func decodeBinaryValue(reader *bufio.Reader, flag int32) ([]byte, error) {
 	}
 
 	// ----> nil binary
-	if tag == BinaryShortLenTagMin {
+	if tag == _binaryShortLenTagMin {
 		return nil, nil
 	}
 
@@ -149,15 +149,15 @@ func decodeBinaryValue(reader *bufio.Reader, flag int32) ([]byte, error) {
 }
 
 func binaryShortTag(tag byte) bool {
-	return tag >= BinaryShortLenTagMin && tag <= BinaryShortLenTagMax
+	return tag >= _binaryShortLenTagMin && tag <= _binaryShortLenTagMax
 }
 
 func binaryChunkTag(tag byte) bool {
-	return tag == BinaryFinalChunk || tag == BinaryChunk
+	return tag == _binaryFinalChunk || tag == _binaryChunk
 }
 
 func binaryEndTag(tag byte) bool {
-	return tag == BinaryFinalChunk || binaryShortTag(tag)
+	return tag == _binaryFinalChunk || binaryShortTag(tag)
 }
 
 func binaryTag(tag byte) bool {
@@ -166,7 +166,7 @@ func binaryTag(tag byte) bool {
 
 func getBinaryLen(reader *bufio.Reader, tag byte) (int, error) {
 	if binaryShortTag(tag) {
-		return int(tag - BinaryShortLenTagMin), nil
+		return int(tag - _binaryShortLenTagMin), nil
 	}
 
 	bs := make([]byte, 2)

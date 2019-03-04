@@ -21,15 +21,15 @@ package hessian
 import "reflect"
 
 const (
-	mask         = byte(127)
-	flag         = byte(128)
-	TagRead      = int32(-1)
-	AsciiGap     = 32
-	BcDate       = byte(0x4a) // 64-bit millisecond UTC date
-	BcDateMinute = byte(0x4b) // 32-bit minute UTC date
-	EndFlag      = byte('Z')
-	BcNull       = byte('N')
-	BcRef        = byte(0x51)
+	mask        = byte(127)
+	flag        = byte(128)
+	_tagRead    = int32(-1)
+	_asciiGap   = 32
+	BcDate      = byte(0x4a) // 64-bit millisecond UTC date
+	_dateMinute = byte(0x4b) // 32-bit minute UTC date
+	_endFlag    = byte('Z')
+	_nilTag     = byte('N')
+	BcRef       = byte(0x51)
 
 	PPacketChunk    = byte(0x4f)
 	PPacket         = byte('P')
@@ -37,43 +37,44 @@ const (
 	PacketDirectMax = byte(0x7f)
 	PPacketShort    = byte(0x70)
 	PacketShortMax  = 0xfff
+
+	_interfaceTypeName = "interface {}"
 )
 
 var (
-	buildInTypes = make(map[string]reflect.Type)
+	_buildInTypeNameMap = make(map[string]string)
 )
 
-func addBuildInType(i interface{}, keys ...string) {
+func addBuildInNameType(i interface{}, convertName string) {
 	typ := reflect.TypeOf(i)
 	name := typ.Name()
 	if name == "" {
 		panic("type name is nil for type " + typ.String())
 	}
-	buildInTypes[name] = typ
-	for _, key := range keys {
-		buildInTypes[key] = typ
+	if convertName == "" {
+		convertName = name
 	}
+	_buildInTypeNameMap[name] = convertName
+	_buildInTypeNameMap[convertName] = convertName
 }
 
 func init() {
-	addBuildInType(byte('A'))
+	addBuildInNameType(" ", "string")
 
-	addBuildInType(" ")
-
-	addBuildInType(int(1))
-	addBuildInType(int8(1))
-	addBuildInType(int16(1))
-	addBuildInType(int32(1))
+	addBuildInNameType(int(1), "int")
+	addBuildInNameType(int8(1), "int")
+	addBuildInNameType(int16(1), "int")
+	addBuildInNameType(int32(1), "int")
 
 	// java: long
-	addBuildInType(int64(1), "long")
+	addBuildInNameType(int64(1), "long")
 
-	addBuildInType(float32(1.0))
+	// java: float
+	addBuildInNameType(float32(1.0), "float")
 
 	// java: double
-	addBuildInType(float64(1.0), "double")
+	addBuildInNameType(float64(1.0), "double")
 
 	// java: boolean
-	addBuildInType(true, "boolean")
-
+	addBuildInNameType(true, "boolean")
 }

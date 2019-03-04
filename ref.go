@@ -56,15 +56,15 @@ import (
 )
 
 const (
-	refStartTag = 0x51
+	_refStartTag = 0x51
 )
 
 func refTag(tag byte) bool {
-	return tag == refStartTag
+	return tag == _refStartTag
 }
 
 func (e *Encoder) writeRef(index int) (int, error) {
-	e.writeBT(refStartTag)
+	e.writeBT(_refStartTag)
 	return e.writer.Write(encodeInt(int32(index)))
 }
 
@@ -75,7 +75,7 @@ func (e *Encoder) checkEncodeRefMap(v reflect.Value) (int, bool) {
 		for v.Elem().Kind() == reflect.Ptr {
 			v = v.Elem()
 		}
-	} else {
+	} else if v.Kind() != reflect.Slice {
 		// pack the raw value with a pointer value in order to get the pointer address
 		v = PackPtr(v)
 	}
@@ -100,21 +100,25 @@ type _refHolder struct {
 
 var _refHolderType = reflect.TypeOf(_refHolder{})
 
-// notice all destinations ref to the value if it changes
+// change ref value
 func (h *_refHolder) change(v reflect.Value) {
 	if h.value.CanAddr() && v.CanAddr() && h.value.Pointer() == v.Pointer() {
 		return
 	}
 	h.value = v
+}
+
+// notice all destinations ref to the value
+func (h *_refHolder) notify() {
 	for _, dest := range h.destinations {
-		SetValue(dest, v)
+		SetValue(dest, h.value)
 	}
 }
 
 // add destination
 func (h *_refHolder) add(dest reflect.Value) {
 	h.destinations = append(h.destinations, dest)
-	SetValue(dest, h.value)
+	// SetValue(dest, h.value)
 }
 
 func (d *Decoder) addDecoderRef(v reflect.Value) *_refHolder {
@@ -133,10 +137,10 @@ func (d *Decoder) addDecoderRef(v reflect.Value) *_refHolder {
 
 // read the ref reflect.Value , which may be one of type _refHolder
 func (d *Decoder) readRef(tag byte) (reflect.Value, error) {
-	if tag != refStartTag {
-		return _zeroValue, newCodecError("readRef", "should be ref tag: %x, but got %x", tag, refStartTag)
+	if tag != _refStartTag {
+		return _zeroValue, newCodecError("readRef", "should be ref tag: %x, but got %x", tag, _refStartTag)
 	}
-	index, err := d.readInt(TagRead)
+	index, err := d.readInt(_tagRead)
 	if err != nil {
 		return _zeroValue, err
 	}
@@ -146,5 +150,6 @@ func (d *Decoder) readRef(tag byte) (reflect.Value, error) {
 	}
 
 	ref := d.refList[idx]
+
 	return ref, nil
 }

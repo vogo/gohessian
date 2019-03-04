@@ -55,28 +55,28 @@ import (
 )
 
 const (
-	StringChunkSize  = 2048
-	StringFinalChunk = byte('S') // final string
-	StringChunk      = byte('R') // non-final string
+	_stringChunkSize  = 2048
+	_stringFinalChunk = byte('S') // final string
+	_stringChunk      = byte('R') // non-final string
 
-	StringShortLenMin = byte(0x00)
-	StringShortLenMax = byte(0x1f)
-	StringShortMaxLen = 31
+	_stringShortLenMin = byte(0x00)
+	_stringShortLenMax = byte(0x1f)
+	_stringShortMaxLen = 31
 
-	StringMiddleLenMin = byte(0x30)
-	StringMiddleLenMax = byte(0x33)
-	StringMiddleMaxLen = 0x3ff
+	_stringMiddleLenMin = byte(0x30)
+	_stringMiddleLenMax = byte(0x33)
+	_stringMiddleMaxLen = 0x3ff
 )
 
 var (
-	strChunkSize         = StringChunkSize
+	strChunkSize         = _stringChunkSize
 	StringChunkSizeBytes = []byte{byte(strChunkSize >> 8), byte(strChunkSize)}
 )
 
 func encodeString(value string) []byte {
 
 	if value == "" {
-		return []byte{BcNull}
+		return []byte{_nilTag}
 	}
 
 	dataBys := []rune(value)
@@ -85,33 +85,33 @@ func encodeString(value string) []byte {
 
 	begin := 0
 	// ----> chunk string
-	for length > StringChunkSize {
-		byteBuf.WriteByte(StringChunk)
+	for length > _stringChunkSize {
+		byteBuf.WriteByte(_stringChunk)
 		byteBuf.Write(StringChunkSizeBytes)
 
-		byteBuf.Write([]byte(string(dataBys[begin:begin+StringChunkSize])))
+		byteBuf.Write([]byte(string(dataBys[begin:begin+_stringChunkSize])))
 
-		length -= StringChunkSize
-		begin += StringChunkSize
+		length -= _stringChunkSize
+		begin += _stringChunkSize
 	}
 
 	// ----> short string
-	if length <= StringShortMaxLen {
-		byteBuf.WriteByte(byte(int(StringShortLenMin) + length))
+	if length <= _stringShortMaxLen {
+		byteBuf.WriteByte(byte(int(_stringShortLenMin) + length))
 		byteBuf.Write([]byte(string(dataBys[begin:])))
 		return byteBuf.Bytes()
 	}
 
 	// ----> middle string
-	if length <= StringMiddleMaxLen {
-		byteBuf.WriteByte(byte((length >> 8) + int(StringMiddleLenMin)))
+	if length <= _stringMiddleMaxLen {
+		byteBuf.WriteByte(byte((length >> 8) + int(_stringMiddleLenMin)))
 		byteBuf.WriteByte(byte(length))
 		byteBuf.Write([]byte(string(dataBys[begin:])))
 		return byteBuf.Bytes()
 	}
 
 	// ----> final chunk string
-	byteBuf.WriteByte(StringFinalChunk)
+	byteBuf.WriteByte(_stringFinalChunk)
 	byteBuf.WriteByte(byte(length >> 8))
 	byteBuf.WriteByte(byte(length))
 	byteBuf.Write([]byte(string(dataBys[begin:])))
@@ -119,7 +119,7 @@ func encodeString(value string) []byte {
 }
 
 func decodeString(reader *bufio.Reader) (string, error) {
-	return decodeStringValue(reader, TagRead)
+	return decodeStringValue(reader, _tagRead)
 }
 
 func decodeStringValue(reader *bufio.Reader, flag int32) (string, error) {
@@ -129,7 +129,7 @@ func decodeStringValue(reader *bufio.Reader, flag int32) (string, error) {
 	}
 
 	// ----> nil string
-	if tag == BcNull {
+	if tag == _nilTag {
 		return "", nil
 	}
 
@@ -178,15 +178,15 @@ func decodeStringValue(reader *bufio.Reader, flag int32) (string, error) {
 }
 
 func stringShortTag(tag byte) bool {
-	return tag >= StringShortLenMin && tag <= StringShortLenMax
+	return tag >= _stringShortLenMin && tag <= _stringShortLenMax
 }
 
 func stringMiddleTag(tag byte) bool {
-	return tag >= StringMiddleLenMin && tag <= StringMiddleLenMax
+	return tag >= _stringMiddleLenMin && tag <= _stringMiddleLenMax
 }
 
 func stringChunkTag(tag byte) bool {
-	return tag == StringChunk || tag == StringFinalChunk
+	return tag == _stringChunk || tag == _stringFinalChunk
 }
 
 func stringTag(tag byte) bool {
@@ -196,12 +196,12 @@ func stringTag(tag byte) bool {
 }
 
 func stringEndTag(tag byte) bool {
-	return tag == StringFinalChunk || stringShortTag(tag) || stringMiddleTag(tag)
+	return tag == _stringFinalChunk || stringShortTag(tag) || stringMiddleTag(tag)
 }
 
 func getStringLen(reader *bufio.Reader, tag byte) (int, error) {
 	if stringShortTag(tag) {
-		return int(tag - StringShortLenMin), nil
+		return int(tag - _stringShortLenMin), nil
 	}
 
 	if stringMiddleTag(tag) {
@@ -210,7 +210,7 @@ func getStringLen(reader *bufio.Reader, tag byte) (int, error) {
 		if err != nil {
 			return -1, err
 		}
-		len := int(tag-StringMiddleLenMin)<<8 + int(buf[0])
+		len := int(tag-_stringMiddleLenMin)<<8 + int(buf[0])
 		return len, nil
 	}
 

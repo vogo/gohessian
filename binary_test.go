@@ -25,7 +25,7 @@ import (
 )
 
 func TestBinaryLength(t *testing.T) {
-	chunkSize := BinaryChunkSize
+	chunkSize := _binaryChunkSize
 	b1 := byte(chunkSize >> 8)
 	b0 := byte(chunkSize)
 
@@ -37,17 +37,17 @@ func TestBinary(t *testing.T) {
 	binaryTest(t, nil)
 	binaryTest(t, []byte{})
 
-	binaryLengthTest(t, BinaryShortTagMaxLen)
-	binaryLengthTest(t, BinaryShortTagMaxLen-5)
-	binaryLengthTest(t, BinaryShortTagMaxLen+5)
+	binaryLengthTest(t, _binaryShortTagMaxLen)
+	binaryLengthTest(t, _binaryShortTagMaxLen-5)
+	binaryLengthTest(t, _binaryShortTagMaxLen+5)
 
-	binaryLengthTest(t, BinaryChunkSize)
-	binaryLengthTest(t, BinaryChunkSize+BinaryShortTagMaxLen)
-	binaryLengthTest(t, BinaryChunkSize+BinaryShortTagMaxLen-5)
-	binaryLengthTest(t, BinaryChunkSize+BinaryShortTagMaxLen+5)
-	binaryLengthTest(t, BinaryChunkSize*2)
-	binaryLengthTest(t, BinaryChunkSize*3+123)
-	binaryLengthTest(t, BinaryChunkSize*4+1234)
+	binaryLengthTest(t, _binaryChunkSize)
+	binaryLengthTest(t, _binaryChunkSize+_binaryShortTagMaxLen)
+	binaryLengthTest(t, _binaryChunkSize+_binaryShortTagMaxLen-5)
+	binaryLengthTest(t, _binaryChunkSize+_binaryShortTagMaxLen+5)
+	binaryLengthTest(t, _binaryChunkSize*2)
+	binaryLengthTest(t, _binaryChunkSize*3+123)
+	binaryLengthTest(t, _binaryChunkSize*4+1234)
 }
 
 func binaryLengthTest(t *testing.T, length int) {

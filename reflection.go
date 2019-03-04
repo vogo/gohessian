@@ -55,16 +55,17 @@ func ExtractTypeNameMap(v interface{}) (map[string]reflect.Type, map[string]stri
 	typMap := make(map[string]reflect.Type)
 	nameMap := make(map[string]string)
 	ExtractValue(value, func(v reflect.Value) bool {
-		typ := v.Type()
-		name := typ.Name()
-		if name == "" {
-			name = typ.String()
+		if !v.IsValid() {
+			return false
 		}
+		typ := v.Type()
+		name := TypeName(typ)
 		if _, ok := typMap[name]; ok {
 			return false
 		}
 
 		typMap[name] = typ
+		nameMap[name] = name
 
 		if n, ok := v.Interface().(CodecNamable); ok {
 			nameMap[name] = n.HessianCodecName()
@@ -72,16 +73,40 @@ func ExtractTypeNameMap(v interface{}) (map[string]reflect.Type, map[string]stri
 		}
 		return true
 	})
+
+	for k, v := range nameMap {
+		if v[0] == '[' {
+			v = formatArrayTypeName(v)
+			elemName := arrayRootElemName(v)
+			replaceName, ok := nameMap[elemName]
+			if !ok {
+				replaceName, ok = _buildInTypeNameMap[elemName]
+			}
+			if ok {
+				v = strings.Replace(v, elemName, replaceName, -1)
+			}
+
+			nameMap[k] = v
+			nameMap[v] = v
+
+			typ, _ := typMap[k]
+			typMap[v] = typ
+		}
+	}
+
 	return typMap, nameMap
+}
+
+// remove pointer '*' and right bracket ']'
+func formatArrayTypeName(v string) string {
+	v = strings.Replace(v, "]", "", -1)
+	v = strings.Replace(v, "*", "", -1)
+	return v
 }
 
 //ExtractValue info
 func ExtractValue(v reflect.Value, extractor ValueExtractor) {
 	v = RawValue(v)
-
-	if IsRawKind(v.Kind()) {
-		return
-	}
 
 	if !extractor(v) {
 		return
@@ -89,9 +114,6 @@ func ExtractValue(v reflect.Value, extractor ValueExtractor) {
 
 	if v.Kind() == reflect.Array || v.Kind() == reflect.Slice {
 		itemTyp := UnpackPtrType(v.Type().Elem())
-		if IsRawKind(itemTyp.Kind()) {
-			return
-		}
 
 		if v.Len() == 0 {
 			ExtractValue(reflect.New(itemTyp), extractor)
@@ -108,12 +130,8 @@ func ExtractValue(v reflect.Value, extractor ValueExtractor) {
 		if v.Len() == 0 {
 			keyTyp := UnpackPtrType(v.Type().Key())
 			valueTyp := UnpackPtrType(v.Type().Elem())
-			if !IsRawKind(keyTyp.Kind()) {
-				ExtractValue(reflect.New(keyTyp), extractor)
-			}
-			if !IsRawKind(valueTyp.Kind()) {
-				ExtractValue(reflect.New(valueTyp), extractor)
-			}
+			ExtractValue(reflect.New(keyTyp), extractor)
+			ExtractValue(reflect.New(valueTyp), extractor)
 			return
 		}
 
@@ -168,6 +186,15 @@ func FetchType(typ reflect.Type, typMap map[string]reflect.Type) {
 
 }
 
+//TypeName return the name of type
+func TypeName(t reflect.Type) string {
+	n := t.Name()
+	if n == "" {
+		n = t.String()
+	}
+	return n
+}
+
 //IsZero value
 func IsZero(v reflect.Value) bool {
 	return !v.IsValid() || reflect.DeepEqual(v.Interface(), reflect.Zero(v.Type()).Interface())
@@ -207,15 +234,28 @@ func PackPtr(v reflect.Value) reflect.Value {
 	return vv
 }
 
-//EnsurePackValue pack the interface with value
-func EnsurePackValue(i interface{}) reflect.Value {
-	if v, ok := i.(reflect.Value); ok {
-		if r, ok := v.Interface().(*_refHolder); ok {
-			return r.value
+//EnsureRawValue pack the interface with value, and make sure it's not a ref holder
+func EnsureRawValue(in interface{}) reflect.Value {
+	if v, ok := in.(reflect.Value); ok {
+		if v.IsValid() {
+			if r, ok := v.Interface().(*_refHolder); ok {
+				return r.value
+			}
 		}
 		return v
 	}
-	return reflect.ValueOf(i)
+	if v, ok := in.(*_refHolder); ok {
+		in = v.value
+	}
+	return reflect.ValueOf(in)
+}
+
+//EnsurePackValue pack the interface with value
+func EnsurePackValue(in interface{}) reflect.Value {
+	if v, ok := in.(reflect.Value); ok {
+		return v
+	}
+	return reflect.ValueOf(in)
 }
 
 // EnsureInterface get value of reflect.Value
@@ -331,35 +371,61 @@ func SetSlice(dest reflect.Value, objects interface{}) error {
 		return nil
 	}
 
+	dest = UnpackPtrValue(dest)
+	destTyp := UnpackPtrType(dest.Type())
+	elemKind := destTyp.Elem().Kind()
+	if elemKind == reflect.Uint8 {
+		// for binary
+		dest.Set(EnsureRawValue(objects))
+		return nil
+	}
+
+	if ref, ok := objects.(*_refHolder); ok {
+		v, err := ConvertSliceValueType(destTyp, ref.value)
+		if err != nil {
+			return err
+		}
+		SetValue(dest, v)
+		ref.change(v) // change finally
+		ref.notify()
+		return nil
+	}
+
 	v := EnsurePackValue(objects)
 	if h, ok := v.Interface().(*_refHolder); ok {
 		h.add(dest)
 		return nil
 	}
 
+	v, err := ConvertSliceValueType(destTyp, v)
+	if err != nil {
+		return err
+	}
+	SetValue(dest, v)
+	return nil
+}
+
+func ConvertSliceValueType(destTyp reflect.Type, v reflect.Value) (reflect.Value, error) {
+	if destTyp == v.Type() {
+		return v, nil
+	}
+
 	k := v.Type().Kind()
 	if k != reflect.Slice && k != reflect.Array {
-		return newCodecError("SetSlice", "expect slice type, but get %v, objects: %v", k, objects)
+		return _zeroValue, newCodecError("ConvertSliceValueType", "expect slice type, but get %v, objects: %v", k, v)
 	}
 
-	dest = UnpackPtrValue(dest)
-	dstTyp := UnpackPtrType(dest.Type())
+	if v.Len() <= 0 {
+		return _zeroValue, nil
+	}
 
-	elemKind := dstTyp.Elem().Kind()
-	if objects == nil && v.Len() <= 0 {
-		return nil
-	}
-	if elemKind == reflect.Uint8 {
-		// for binary
-		dest.Set(v)
-		return nil
-	}
+	elemKind := destTyp.Elem().Kind()
 	elemPtrType := elemKind == reflect.Ptr
 	elemFloatType := FloatKind(elemKind)
 	elemIntType := IntKind(elemKind)
 	elemUintType := UintKind(elemKind)
 
-	sl := reflect.MakeSlice(dstTyp, v.Len(), v.Len())
+	sl := reflect.MakeSlice(destTyp, v.Len(), v.Len())
 	var itemValue reflect.Value
 	for i := 0; i < v.Len(); i++ {
 		item := v.Index(i).Interface()
@@ -370,7 +436,7 @@ func SetSlice(dest reflect.Value, objects interface{}) error {
 		}
 
 		if !elemPtrType && itemValue.Kind() == reflect.Ptr {
-			itemValue = itemValue.Elem()
+			itemValue = UnpackPtrValue(itemValue)
 		}
 
 		switch {
@@ -381,13 +447,11 @@ func SetSlice(dest reflect.Value, objects interface{}) error {
 		case elemUintType:
 			sl.Index(i).SetUint(EnsureUint64(itemValue.Interface()))
 		default:
-			//sl.Index(i).Set(itemValue)
 			SetValue(sl.Index(i), itemValue)
 		}
 	}
 
-	SetValue(dest, sl)
-	return nil
+	return sl, nil
 }
 
 func findField(name string, typ reflect.Type) (int, error) {
@@ -468,4 +532,21 @@ func AddrEqual(x, y interface{}) bool {
 		v2 = PackPtr(v2)
 	}
 	return v1.Pointer() == v2.Pointer()
+}
+
+// arrayRootElemName format may be '[[[string' or '[][][]string'
+// this func will remove the bracket prefix
+func arrayRootElemName(arrayName string) string {
+	idx := strings.LastIndex(arrayName, "]")
+	if idx < 0 {
+		idx = strings.LastIndex(arrayName, "[")
+	}
+	if idx >= 0 {
+		arrayName = arrayName[idx+1:]
+	}
+	idx = strings.LastIndex(arrayName, "*")
+	if idx >= 0 {
+		arrayName = arrayName[idx+1:]
+	}
+	return arrayName
 }

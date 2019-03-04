@@ -48,57 +48,57 @@ import (
 )
 
 const (
-	Int1ByteTagMin    = 0x80
-	Int1ByteTagMax    = 0xbf
-	Int1ByteZero      = byte(0x90)
-	Int1ByteZeroInt32 = int32(Int1ByteZero)
-	Int1ByteValueMin  = int32(-16)
-	Int1ByteValueMax  = int32(47)
+	_int1ByteTagMin    = 0x80
+	_int1ByteTagMax    = 0xbf
+	_int1ByteZero      = byte(0x90)
+	_int1ByteZeroInt32 = int32(_int1ByteZero)
+	_int1ByteValueMin  = int32(-16)
+	_int1ByteValueMax  = int32(47)
 
-	Int2ByteTagMin    = 0xc0
-	Int2ByteTagMax    = 0xcf
-	Int2ByteZero      = byte(0xc8)
-	Int2ByteZeroInt32 = int32(Int2ByteZero)
-	Int2ByteValueMin  = int32(-2048)
-	Int2ByteValueMax  = int32(2047)
+	_int2ByteTagMin    = 0xc0
+	_int2ByteTagMax    = 0xcf
+	_int2ByteZero      = byte(0xc8)
+	_int2ByteZeroInt32 = int32(_int2ByteZero)
+	_int2ByteValueMin  = int32(-2048)
+	_int2ByteValueMax  = int32(2047)
 
-	Int3ByteTagMin    = 0xd0
-	Int3ByteTagMax    = 0xd7
-	Int3ByteZero      = byte(0xd4)
-	Int3ByteZeroInt32 = int32(Int3ByteZero)
-	Int3ByteValueMin  = int32(-262144)
-	Int3ByteValueMax  = int32(262143)
+	_int3ByteTagMin    = 0xd0
+	_int3ByteTagMax    = 0xd7
+	_int3ByteZero      = byte(0xd4)
+	_int3ByteZeroInt32 = int32(_int3ByteZero)
+	_int3ByteValueMin  = int32(-262144)
+	_int3ByteValueMax  = int32(262143)
 
-	Int4ByteStartTag = byte('I')
+	_int4ByteStartTag = byte('I')
 )
 
 func intTag(tag byte) bool {
-	return (tag >= Int1ByteTagMin && tag <= Int1ByteTagMax) ||
-		(tag >= Int2ByteTagMin && tag <= Int2ByteTagMax) ||
-		(tag >= Int3ByteTagMin && tag <= Int3ByteTagMax) ||
-		(tag == Int4ByteStartTag)
+	return (tag >= _int1ByteTagMin && tag <= _int1ByteTagMax) ||
+		(tag >= _int2ByteTagMin && tag <= _int2ByteTagMax) ||
+		(tag >= _int3ByteTagMin && tag <= _int3ByteTagMax) ||
+		(tag == _int4ByteStartTag)
 }
 
 func encodeInt(value int32) []byte {
-	if Int1ByteValueMin <= value && value <= Int1ByteValueMax {
-		return []byte{byte(Int1ByteZeroInt32 + value)}
+	if _int1ByteValueMin <= value && value <= _int1ByteValueMax {
+		return []byte{byte(_int1ByteZeroInt32 + value)}
 	}
 
-	if Int2ByteValueMin <= value && value <= Int2ByteValueMax {
+	if _int2ByteValueMin <= value && value <= _int2ByteValueMax {
 		return []byte{
-			byte(Int2ByteZeroInt32 + value>>8),
+			byte(_int2ByteZeroInt32 + value>>8),
 			byte(value)}
 	}
 
-	if Int3ByteValueMin <= value && value <= Int3ByteValueMax {
+	if _int3ByteValueMin <= value && value <= _int3ByteValueMax {
 		return []byte{
-			byte(Int3ByteZeroInt32 + value>>16),
+			byte(_int3ByteZeroInt32 + value>>16),
 			byte(value >> 8),
 			byte(value)}
 	}
 
 	return []byte{
-		Int4ByteStartTag,
+		_int4ByteStartTag,
 		byte(value >> 24),
 		byte(value >> 16),
 		byte(value >> 8),
@@ -106,7 +106,7 @@ func encodeInt(value int32) []byte {
 }
 
 func decodeInt(reader *bufio.Reader) (int32, error) {
-	return decodeIntValue(reader, TagRead)
+	return decodeIntValue(reader, _tagRead)
 }
 
 func decodeIntValue(reader *bufio.Reader, flag int32) (int32, error) {
@@ -115,29 +115,29 @@ func decodeIntValue(reader *bufio.Reader, flag int32) (int32, error) {
 		return 0, err
 	}
 
-	if tag >= Int1ByteTagMin && tag <= Int1ByteTagMax {
-		u8 := uint8(tag - Int1ByteZero)
+	if tag >= _int1ByteTagMin && tag <= _int1ByteTagMax {
+		u8 := uint8(tag - _int1ByteZero)
 		i8 := *(*int8)(unsafe.Pointer(&u8))
 		return int32(i8), nil
 	}
 
-	if tag >= Int2ByteTagMin && tag <= Int2ByteTagMax {
+	if tag >= _int2ByteTagMin && tag <= _int2ByteTagMax {
 		bf, err := readBytes(reader, 1)
 		if err != nil {
 			return 0, err
 		}
-		by := []byte{byte(tag - Int2ByteZero), bf[0]}
+		by := []byte{byte(tag - _int2ByteZero), bf[0]}
 		u16 := binary.BigEndian.Uint16(by)
 		i16 := *(*int16)(unsafe.Pointer(&u16))
 		return int32(i16), nil
 	}
 
-	if tag >= Int3ByteTagMin && tag <= Int3ByteTagMax {
+	if tag >= _int3ByteTagMin && tag <= _int3ByteTagMax {
 		bf, err := readBytes(reader, 2)
 		if err != nil {
 			return 0, err
 		}
-		b := byte(tag - Int3ByteZero)
+		b := byte(tag - _int3ByteZero)
 		var fb byte
 		if b&0x08 > 0 {
 			fb = 0xFF
@@ -150,7 +150,7 @@ func decodeIntValue(reader *bufio.Reader, flag int32) (int32, error) {
 		return i32, nil
 	}
 
-	if tag == Int4ByteStartTag {
+	if tag == _int4ByteStartTag {
 		buf, err := readBytes(reader, 4)
 		if err != nil {
 			return 0, err

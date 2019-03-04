@@ -16,6 +16,7 @@
 package hessian
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
@@ -66,4 +67,14 @@ func TestExtractTypeMap(t *testing.T) {
 	_, found = m["ServerApi"]
 	assert.True(t, found)
 
+}
+
+func TestTypeName(t *testing.T) {
+	i := make([]interface{}, 2, 2)
+	i[0] = 1
+	i[1] = "hello"
+
+	typ := reflect.TypeOf(i)
+	fmt.Println(typ)
+	assert.Equal(t, _interfaceTypeName, arrayRootElemName(TypeName(typ)))
 }

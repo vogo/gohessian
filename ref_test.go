@@ -29,13 +29,17 @@ type circularT struct {
 }
 
 func doTestRef(t *testing.T, c interface{}, name string) interface{} {
-	bytes, err := ToBytes(c, NameMapFrom(c))
+	nameMap := NameMapFrom(c)
+	t.Log("name map:", nameMap)
+	bytes, err := ToBytes(c, nameMap)
 	assert.Nil(t, err)
 
 	t.Logf("%s ref bytes: %s", name, string(bytes))
 	t.Logf("%s ref bytes: %x", name, bytes)
 
-	decoded, err := ToObject(bytes, TypeMapFrom(c))
+	typMap := TypeMapFrom(c)
+	t.Log("type map:", typMap)
+	decoded, err := ToObject(bytes, typMap)
 	assert.Nil(t, err)
 	t.Logf("%s ref decoded: %v", name, decoded)
 	return decoded
@@ -136,6 +140,7 @@ func TestComplexLevelRef(t *testing.T) {
 	relations := []*personT{p5, p6}
 	p3.Relations = relations
 	p4.Relations = relations
+	assert.False(t, AddrEqual(p3.Relations, p4.Relations))
 
 	marks := &map[string]*personT{
 		"beautiful": p1,

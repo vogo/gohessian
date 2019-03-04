@@ -27,22 +27,22 @@ import (
 func TestString(t *testing.T) {
 	stringTest(t, "")
 
-	stringLengthTest(t, StringShortMaxLen)
-	stringLengthTest(t, StringShortMaxLen-5)
-	stringLengthTest(t, StringShortMaxLen+5)
+	stringLengthTest(t, _stringShortMaxLen)
+	stringLengthTest(t, _stringShortMaxLen-5)
+	stringLengthTest(t, _stringShortMaxLen+5)
 
-	stringLengthTest(t, StringChunkSize)
-	stringLengthTest(t, StringChunkSize*2)
-	stringLengthTest(t, StringChunkSize*3+123)
-	stringLengthTest(t, StringChunkSize*4+1234)
+	stringLengthTest(t, _stringChunkSize)
+	stringLengthTest(t, _stringChunkSize*2)
+	stringLengthTest(t, _stringChunkSize*3+123)
+	stringLengthTest(t, _stringChunkSize*4+1234)
 
-	stringLengthTest(t, StringChunkSize+StringShortMaxLen)
-	stringLengthTest(t, StringChunkSize+StringShortMaxLen-5)
-	stringLengthTest(t, StringChunkSize+StringShortMaxLen+5)
+	stringLengthTest(t, _stringChunkSize+_stringShortMaxLen)
+	stringLengthTest(t, _stringChunkSize+_stringShortMaxLen-5)
+	stringLengthTest(t, _stringChunkSize+_stringShortMaxLen+5)
 
-	stringLengthTest(t, StringChunkSize+StringMiddleMaxLen)
-	stringLengthTest(t, StringChunkSize+StringMiddleMaxLen-5)
-	stringLengthTest(t, StringChunkSize+StringMiddleMaxLen+5)
+	stringLengthTest(t, _stringChunkSize+_stringMiddleMaxLen)
+	stringLengthTest(t, _stringChunkSize+_stringMiddleMaxLen-5)
+	stringLengthTest(t, _stringChunkSize+_stringMiddleMaxLen+5)
 }
 // Returns an int >= min, < max
 func randomInt(min, max int) int {
