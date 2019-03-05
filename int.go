@@ -161,5 +161,5 @@ func decodeIntValue(reader *bufio.Reader, flag int32) (int32, error) {
 		return i32, nil
 	}
 
-	return 0, newCodecError("decodeIntValue", "wrong int tag: %x", tag)
+	return 0, newCodecError("decodeIntValue", "error int tag: 0x%x", tag)
 }

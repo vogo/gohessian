@@ -138,7 +138,7 @@ func (d *Decoder) addDecoderRef(v reflect.Value) *_refHolder {
 // read the ref reflect.Value , which may be one of type _refHolder
 func (d *Decoder) readRef(tag byte) (reflect.Value, error) {
 	if tag != _refStartTag {
-		return _zeroValue, newCodecError("readRef", "should be ref tag: %x, but got %x", tag, _refStartTag)
+		return _zeroValue, newCodecError("readRef", "error ref tag: 0x%x", tag)
 	}
 	index, err := d.readInt(_tagRead)
 	if err != nil {

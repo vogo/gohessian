@@ -184,7 +184,7 @@ func (d *Decoder) ReadList() (interface{}, error) {
 	case tag == _nilTag:
 		return nil, nil
 	default:
-		return nil, newCodecError("ReadList", "expect list tag but get %x", tag)
+		return nil, newCodecError("ReadList", "error list tag: 0x%x", tag)
 	}
 }
 
@@ -213,7 +213,7 @@ func (d *Decoder) readTypedList(tag byte) (interface{}, error) {
 	} else if isVariableArr {
 		length = 0
 	} else {
-		return nil, newCodecError("readTypedList", "expect typed list tag, but get %x", tag)
+		return nil, newCodecError("readTypedList", "error typed list tag: 0x%x", tag)
 	}
 
 	//
@@ -281,7 +281,7 @@ func (d *Decoder) readUntypedList(tag byte) (interface{}, error) {
 	} else if isVariableArr {
 		length = 0
 	} else {
-		return nil, newCodecError("readUntypedList", "expect untyped list tag, but get %x", tag)
+		return nil, newCodecError("readUntypedList", "error untyped list tag: %x", tag)
 	}
 
 	ary := make([]interface{}, length)

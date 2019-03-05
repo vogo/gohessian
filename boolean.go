@@ -46,5 +46,5 @@ func decodeBooleanValue(reader *bufio.Reader, flag int32) (bool, error) {
 	case _boolFalseTag:
 		return false, nil
 	}
-	return false, newCodecError("decodeBooleanValue", "wrong boolean tag: %x", tag)
+	return false, newCodecError("decodeBooleanValue", "error boolean tag: 0x%x", tag)
 }

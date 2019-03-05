@@ -132,7 +132,7 @@ func decodeBinaryValue(reader *bufio.Reader, flag int32) ([]byte, error) {
 			return nil, err
 		}
 		if !binaryTag(tag) {
-			return nil, fmt.Errorf("error binary tag: %x", tag)
+			return nil, fmt.Errorf("error binary tag: 0x%x", tag)
 		}
 
 		newLength, err := getBinaryLen(reader, tag)

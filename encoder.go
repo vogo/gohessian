@@ -164,3 +164,7 @@ func (e *Encoder) writeBinary(value []byte) (int, error) {
 func (e *Encoder) writeBT(bs ...byte) (int, error) {
 	return e.writer.Write(bs)
 }
+
+func (e *Encoder) writeBytes(bytes []byte) (int, error) {
+	return e.writer.Write(bytes)
+}

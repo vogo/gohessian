@@ -97,7 +97,7 @@ func encodeDouble(value float64) ([]byte, error) {
 
 func doubleTag(tag byte) bool {
 	switch tag {
-	case _long4ByteStartTag, _doubleMillTag, _doubleZeroTag, _doubleOneTag, _doubleByteTag, _doubleShortTag, _doubleStartTag, _dateMinute:
+	case _long4ByteStartTag, _doubleMillTag, _doubleZeroTag, _doubleOneTag, _doubleByteTag, _doubleShortTag, _doubleStartTag:
 		return true
 	default:
 		return false
@@ -141,9 +141,7 @@ func decodeDoubleValue(reader *bufio.Reader, flag int32) (float64, error) {
 		bits := binary.BigEndian.Uint64(buf)
 		datum := math.Float64frombits(bits)
 		return datum, nil
-	case _dateMinute:
-		return 0, newCodecError("decodeDoubleValue", "date minute decode not yet implemented")
 	}
 
-	return 0, newCodecError("decodeDoubleValue", "wrong double tag: %x", tag)
+	return 0, newCodecError("decodeDoubleValue", "error double tag: 0x%x", tag)
 }

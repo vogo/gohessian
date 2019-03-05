@@ -161,7 +161,7 @@ func decodeStringValue(reader *bufio.Reader, flag int32) (string, error) {
 		}
 
 		if !stringTag(tag) {
-			return "", newCodecError("decodeStringValue", "unknown string tag: %x", tag)
+			return "", newCodecError("decodeStringValue", "error string tag: 0x%x", tag)
 		}
 
 		newLength, err := getStringLen(reader, tag)
@@ -223,6 +223,6 @@ func getStringLen(reader *bufio.Reader, tag byte) (int, error) {
 		return len, nil
 	}
 
-	return -1, newCodecError("getStringLen", "err string tag: %x", tag)
+	return -1, newCodecError("getStringLen", "err string tag: 0x%x", tag)
 
 }

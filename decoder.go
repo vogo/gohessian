@@ -34,6 +34,7 @@ import (
 	"bytes"
 	"io"
 	"reflect"
+	"time"
 )
 
 var _ = bytes.MinRead
@@ -133,6 +134,10 @@ func (d *Decoder) readString(flag int32) (string, error) {
 	return decodeStringValue(d.reader, flag)
 }
 
+func (d *Decoder) readDate(flag int32) (time.Time, error) {
+	return decodeDateValue(d.reader, flag)
+}
+
 func (d *Decoder) readStruct() (interface{}, error) {
 	tag, err := d.readTag()
 	if err != nil {
@@ -145,6 +150,8 @@ func (d *Decoder) readStruct() (interface{}, error) {
 		return nil, io.EOF
 	case tag == _nilTag:
 		return nil, nil
+	case dateTag(tag):
+		return d.readDate(int32(tag))
 	case tag == _objectDefTag:
 		return d.readObjectDef()
 	case objectLenTag(tag):
@@ -154,7 +161,7 @@ func (d *Decoder) readStruct() (interface{}, error) {
 	case refTag(tag):
 		return d.readRef(tag)
 	default:
-		return nil, newCodecError("readStruct", "unknown tag: %x", tag)
+		return nil, newCodecError("readStruct", "unknown tag: 0x%x", tag)
 	}
 }
 
@@ -183,6 +190,8 @@ func (d *Decoder) ReadData() (interface{}, error) {
 		return d.readDouble(int32(tag))
 	case stringTag(tag):
 		return d.readString(int32(tag))
+	case dateTag(tag):
+		return d.readDate(int32(tag))
 	case binaryTag(tag):
 		return d.readBinary(int32(tag))
 	case refTag(tag):
@@ -202,6 +211,6 @@ func (d *Decoder) ReadData() (interface{}, error) {
 	case untypedListTag(tag):
 		return d.readUntypedList(tag)
 	default:
-		return nil, newCodecError("readData", "unknown tag: %x", tag)
+		return nil, newCodecError("readData", "unknown tag: 0x%x", tag)
 	}
 }

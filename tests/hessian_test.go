@@ -18,9 +18,10 @@ package tests
 import (
 	"reflect"
 	"testing"
+	"time"
 
-	"github.com/vogo/gohessian"
 	"github.com/stretchr/testify/assert"
+	"github.com/vogo/gohessian"
 )
 
 func TestComplexStruct(t *testing.T) {
@@ -38,12 +39,13 @@ func TestComplexStruct(t *testing.T) {
 	type JOB struct {
 		Title   string
 		Company string
+		From    time.Time
 	}
 
 	type Worker struct {
 		Person
-		Job        JOB   // pointer not supported
-		HistoryJob []JOB // pointer not supported
+		Job        JOB
+		HistoryJob []JOB
 	}
 
 	name := UserName{
@@ -70,12 +72,14 @@ func TestComplexStruct(t *testing.T) {
 		Sex:      true,
 	}
 
+	date := time.Unix(0, (time.Now().UnixNano()/int64(time.Millisecond))*int64(time.Millisecond))
+
 	worker := Worker{
 		Person: person,
 		Job:    JOB{Title: "cto", Company: "facebook"},
 		HistoryJob: []JOB{
-			JOB{Title: "manager", Company: "google"},
-			JOB{Title: "ceo", Company: "microsoft"},
+			{Title: "manager", Company: "google", From: date},
+			{Title: "ceo", Company: "microsoft", From: date.Add(time.Hour * 24 * 365)},
 		},
 	}
 

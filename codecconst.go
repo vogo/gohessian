@@ -21,23 +21,10 @@ package hessian
 import "reflect"
 
 const (
-	mask        = byte(127)
-	flag        = byte(128)
-	_tagRead    = int32(-1)
-	_asciiGap   = 32
-	BcDate      = byte(0x4a) // 64-bit millisecond UTC date
-	_dateMinute = byte(0x4b) // 32-bit minute UTC date
-	_endFlag    = byte('Z')
-	_nilTag     = byte('N')
-	BcRef       = byte(0x51)
-
-	PPacketChunk    = byte(0x4f)
-	PPacket         = byte('P')
-	PPacketDirect   = byte(0x80)
-	PacketDirectMax = byte(0x7f)
-	PPacketShort    = byte(0x70)
-	PacketShortMax  = 0xfff
-
+	_tagRead           = int32(-1)
+	_asciiGap          = 32
+	_endFlag           = byte('Z')
+	_nilTag            = byte('N')
 	_interfaceTypeName = "interface {}"
 )
 

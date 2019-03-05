@@ -107,6 +107,7 @@ import (
 	"io"
 	"reflect"
 	"strings"
+	"time"
 )
 
 const (
@@ -132,8 +133,13 @@ func (e *Encoder) writeObject(data interface{}) (int, error) {
 	}
 
 	vv = UnpackPtrValue(vv)
-	typ := vv.Type()
 
+	// check date type for date is a struct
+	if date, ok := vv.Interface().(time.Time); ok {
+		return e.writeBytes(encodeDate(date))
+	}
+
+	typ := vv.Type()
 	clsName, ok := e.nameMap[typ.Name()]
 	if !ok {
 		clsName = typ.Name()
@@ -256,7 +262,7 @@ func (d *Decoder) readObjectDef() (interface{}, error) {
 	if tag == _objectTag {
 		return d.readTagObject()
 	}
-	return nil, newCodecError("readObjectDef", "unknown tag after class def: %x", tag)
+	return nil, newCodecError("readObjectDef", "unknown tag after class def: 0x%x", tag)
 }
 
 func (d *Decoder) readObject(typ reflect.Type, cls ClassDef) (interface{}, error) {
@@ -281,7 +287,7 @@ func (d *Decoder) readObject(typ reflect.Type, cls ClassDef) (interface{}, error
 
 		err = d.readField(fldName, fldValue)
 		if err != nil {
-			return nil, newCodecError("readObject", "failed to decode field %s", fldName, err)
+			return nil, newCodecError("readObject", "failed to decode field '%s'", fldName, err)
 		}
 
 		//fmt.Printf("====> after add field %s: %v, %v, %p\n", fldName, vv.Type(), vv.Interface(), vv.Interface())

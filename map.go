@@ -232,7 +232,7 @@ func (d *Decoder) readMap(dest reflect.Value) error {
 	} else if tag == _mapUntypedTag {
 		//do nothing
 	} else {
-		return newCodecError("readMap", "unknown map tag: %x", tag)
+		return newCodecError("readMap", "error map tag: 0x%x", tag)
 	}
 
 	mapTyp := UnpackPtrType(dest.Type())
