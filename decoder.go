@@ -61,13 +61,15 @@ func NewDecoder(r *bufio.Reader, typ map[string]reflect.Type) *Decoder {
 		typ = make(map[string]reflect.Type, 17)
 	}
 	decode := &Decoder{
-		reader:     r,
-		typMap:     typ,
-		typList:    make([]string, 0, 17),
-		refList:    make([]reflect.Value, 0, 17),
-		clsDefList: make([]ClassDef, 0, 17),
+		typMap: typ,
 	}
+	decode.Reset(r)
 	return decode
+}
+
+//Decode object
+func (d *Decoder) Decode() (interface{}, error) {
+	return EnsureInterface(d.ReadData())
 }
 
 //RegisterType register key/value type
@@ -86,7 +88,8 @@ func (d *Decoder) RegisterVal(key string, val interface{}) {
 }
 
 //Reset reset
-func (d *Decoder) Reset() {
+func (d *Decoder) Reset(r *bufio.Reader) {
+	d.reader = r
 	d.typList = make([]string, 0, 17)
 	d.clsDefList = make([]ClassDef, 0, 17)
 	d.refList = make([]reflect.Value, 0, 17)

@@ -67,9 +67,11 @@ func ExtractTypeNameMap(v interface{}) (map[string]reflect.Type, map[string]stri
 		typMap[name] = typ
 		nameMap[name] = name
 
-		if n, ok := v.Interface().(CodecNamable); ok {
-			nameMap[name] = n.HessianCodecName()
-			typMap[n.HessianCodecName()] = typ
+		if v.CanInterface() {
+			if n, ok := v.Interface().(CodecNamable); ok {
+				nameMap[name] = n.HessianCodecName()
+				typMap[n.HessianCodecName()] = typ
+			}
 		}
 		return true
 	})
@@ -514,6 +516,30 @@ func SetValue(dest, v reflect.Value) {
 	}
 
 	// set value as required type
+	if dest.Type() == v.Type() {
+		dest.Set(v)
+		return
+	}
+
+	// unpack ptr so that to special check for float,int,uint kind
+	if dest.Kind() == reflect.Ptr {
+		dest = UnpackPtrValue(dest)
+		v = UnpackPtrValue(v)
+	}
+
+	kind := dest.Kind()
+	switch kind {
+	case reflect.Float32, reflect.Float64:
+		dest.SetFloat(EnsureFloat64(v.Interface()))
+		return
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		dest.SetInt(EnsureInt64(v.Interface()))
+		return
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		dest.SetUint(EnsureUint64(v.Interface()))
+		return
+	}
+
 	dest.Set(v)
 }
 

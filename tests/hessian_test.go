@@ -94,7 +94,8 @@ func TestComplexStruct(t *testing.T) {
 func encodeDecode(t *testing.T, object interface{}, testFunc func(res interface{})) {
 	t.Log("--------------------")
 	t.Log("object:", object)
-	bt, err := hessian.Encode(object)
+	typeMap, nameMap := hessian.ExtractTypeNameMap(object)
+	bt, err := hessian.ToBytes(object, nameMap)
 	if err != nil {
 		t.Error(err)
 		t.FailNow()
@@ -104,7 +105,7 @@ func encodeDecode(t *testing.T, object interface{}, testFunc func(res interface{
 
 	typ := reflect.TypeOf(object)
 	t.Log("type map:", hessian.TypeMapOf(typ))
-	res, err := hessian.Decode(bt, typ)
+	res, err := hessian.ToObject(bt, typeMap)
 	if err != nil {
 		t.Error(err)
 		t.FailNow()

@@ -20,7 +20,6 @@ package hessian
 
 import (
 	"bytes"
-	"fmt"
 	"reflect"
 	"testing"
 )
@@ -33,7 +32,7 @@ func TestMethod_pkg(t *testing.T) {
 		method := typ.Method(m)
 		mtype := method.Type
 		mname := method.Name
-		fmt.Println("pkg", method.PkgPath, len(method.PkgPath), "type", mtype, mname)
+		t.Log("pkg", method.PkgPath, len(method.PkgPath), "type", mtype, mname)
 	}
 
 }

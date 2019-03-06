@@ -16,7 +16,6 @@
 package hessian
 
 import (
-	"fmt"
 	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
@@ -75,6 +74,6 @@ func TestTypeName(t *testing.T) {
 	i[1] = "hello"
 
 	typ := reflect.TypeOf(i)
-	fmt.Println(typ)
+	t.Log("TestTypeName:", typ)
 	assert.Equal(t, _interfaceTypeName, arrayRootElemName(TypeName(typ)))
 }

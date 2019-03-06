@@ -120,7 +120,7 @@ func logRefObject(t *testing.T, n string, i interface{}) {
 	t.Log(n, i)
 }
 
-func TestComplexLevelRef(t *testing.T) {
+func complexLevelPerson() *personT {
 	p1 := &personT{Name: "p1"}
 	p2 := &personT{Name: "p2"}
 	p3 := &personT{Name: "p3"}
@@ -140,7 +140,6 @@ func TestComplexLevelRef(t *testing.T) {
 	relations := []*personT{p5, p6}
 	p3.Relations = relations
 	p4.Relations = relations
-	assert.False(t, AddrEqual(p3.Relations, p4.Relations))
 
 	marks := &map[string]*personT{
 		"beautiful": p1,
@@ -157,6 +156,11 @@ func TestComplexLevelRef(t *testing.T) {
 	p5.Tags = tags
 	p6.Tags = tags
 
+	return p1
+}
+
+func TestComplexLevelRef(t *testing.T) {
+	p1 := complexLevelPerson()
 	decoded := doTestRef(t, p1, "person")
 
 	d1, ok := decoded.(*personT)
@@ -185,12 +189,12 @@ func TestComplexLevelRef(t *testing.T) {
 	logRefObject(t, "d5:", d5)
 	logRefObject(t, "d6:", d6)
 
-	assert.Equal(t, p1.Name, d1.Name)
-	assert.Equal(t, p2.Name, d2.Name)
-	assert.Equal(t, p3.Name, d3.Name)
-	assert.Equal(t, p4.Name, d4.Name)
-	assert.Equal(t, p5.Name, d5.Name)
-	assert.Equal(t, p6.Name, d6.Name)
+	assert.Equal(t, "p1", d1.Name)
+	assert.Equal(t, "p2", d2.Name)
+	assert.Equal(t, "p3", d3.Name)
+	assert.Equal(t, "p4", d4.Name)
+	assert.Equal(t, "p5", d5.Name)
+	assert.Equal(t, "p6", d6.Name)
 
 	assert.Equal(t, 2, len(*d1.Likes))
 	assert.True(t, AddrEqual(d2, (*d1.Likes)[0]))

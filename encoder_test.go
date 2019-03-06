@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
-	"fmt"
 	"github.com/stretchr/testify/assert"
 	"math"
 	"reflect"
@@ -74,13 +73,11 @@ func TestIntConvert(t *testing.T) {
 }
 
 func conv32(i interface{}) bool {
-	x, ok := i.(int32)
-	fmt.Print(x)
+	_, ok := i.(int32)
 	return ok
 }
 func conv64(i interface{}) bool {
-	x, ok := i.(int64)
-	fmt.Print(x)
+	_, ok := i.(int64)
 	return ok
 }
 
@@ -116,7 +113,12 @@ type NumS struct {
 	Sa   []string
 	Ba   []byte
 	F32a []float32
+	F64a []float64
+	Va16 []int16
+	Va64 []int64
 	Va   []int
+	Ua16 []uint16
+	Ua64 []uint64
 	Ua   []uint
 }
 
@@ -141,12 +143,21 @@ func TestEncodeDecode(t *testing.T) {
 		Sa:   []string{"hello", "world"},
 		Ba:   bf,
 		F32a: []float32{13.14, 520.52},
+		F64a: []float64{64.64, 32.32},
 		Va:   []int{1024, 2048},
+		Va16: []int16{1024, 2048},
+		Va64: []int64{1024, 2048},
 		Ua:   []uint{4096, 10240},
+		Ua16: []uint16{4096, 10240},
+		Ua64: []uint64{4096, 10240},
 	}
 
 	t.Log("num struct encode:", s)
-	bytes, err := Encode(s)
+	typMap, nameMap := ExtractTypeNameMap(s)
+	t.Log("type map: ", typMap)
+	t.Log("name map: ", nameMap)
+
+	bytes, err := ToBytes(s, nameMap)
 	if err != nil {
 		t.Error("encode int struct error:", err)
 		return
@@ -154,7 +165,7 @@ func TestEncodeDecode(t *testing.T) {
 	t.Log("num struct bytes:", string(bytes))
 	t.Log("num struct HEX:", hex.EncodeToString(bytes))
 
-	s1, err := Decode(bytes, reflect.TypeOf(s))
+	s1, err := ToObject(bytes, typMap)
 	if err != nil {
 		t.Error("decode int struct error:", err)
 		return

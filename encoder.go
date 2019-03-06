@@ -33,9 +33,6 @@ type Encoder struct {
 
 //NewEncoder new
 func NewEncoder(w io.Writer, np map[string]string) *Encoder {
-	if w == nil {
-		return nil
-	}
 	if np == nil {
 		np = make(map[string]string, 17)
 	}
@@ -49,8 +46,8 @@ func NewEncoder(w io.Writer, np map[string]string) *Encoder {
 }
 
 //RegisterNameType register name type
-func (e *Encoder) RegisterNameType(key string, javaClsName string) {
-	e.nameMap[key] = javaClsName
+func (e *Encoder) RegisterNameType(key string, objectName string) {
+	e.nameMap[key] = objectName
 }
 
 //RegisterNameMap register name map
@@ -59,8 +56,8 @@ func (e *Encoder) RegisterNameMap(mp map[string]string) {
 }
 
 //Reset reset
-func (e *Encoder) Reset() {
-	e.nameMap = make(map[string]string, 17)
+func (e *Encoder) Reset(w io.Writer) {
+	e.writer = w
 	e.clsDefList = make([]ClassDef, 0, 17)
 }
 

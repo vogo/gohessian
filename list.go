@@ -216,13 +216,6 @@ func (d *Decoder) readTypedList(tag byte) (interface{}, error) {
 		return nil, newCodecError("readTypedList", "error typed list tag: 0x%x", tag)
 	}
 
-	//
-	//// read first array item
-	//it, err := d.ReadData()
-	//if err != nil {
-	//	return nil, newCodecError("readTypedList", err)
-	//}
-
 	// return when no element
 	if length < 0 {
 		return nil, nil
