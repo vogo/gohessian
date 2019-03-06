@@ -50,16 +50,30 @@ import (
 	"bufio"
 	"encoding/binary"
 	"math"
+	"unsafe"
 )
 
 const (
-	_doubleStartTag = byte('D') // IEEE 64-bit double
-	_doubleZeroTag  = byte(0x5b)
-	_doubleOneTag   = byte(0x5c)
-	_doubleByteTag  = byte(0x5d)
-	_doubleShortTag = byte(0x5e)
-	_doubleMillTag  = byte(0x5f)
+	_doubleLongStartTag = byte('D') // IEEE 64-bit double
+	_doubleZeroTag      = byte(0x5b)
+	_doubleOneTag       = byte(0x5c)
+	_doubleOneByteTag   = byte(0x5d)
+	_doubleTwoByteTag   = byte(0x5e)
+	_doubleFourByteTag  = byte(0x5f)
+	_doubleOneByteMin   = -0x80   // -128
+	_doubleOneByteMax   = -0x7f   // 127
+	_doubleTwoByteMin   = -0x8000 // -32768.0
+	_doubleTwoByteMax   = -0x7fff // 32767.0
 )
+
+func doubleTag(tag byte) bool {
+	switch tag {
+	case _long4ByteStartTag, _doubleFourByteTag, _doubleZeroTag, _doubleOneTag, _doubleOneByteTag, _doubleTwoByteTag, _doubleLongStartTag:
+		return true
+	default:
+		return false
+	}
+}
 
 // see: http://hessian.caucho.com/doc/hessian-serialization.html##double
 func encodeDouble(value float64) ([]byte, error) {
@@ -73,18 +87,29 @@ func encodeDouble(value float64) ([]byte, error) {
 			return []byte{_doubleOneTag}, nil
 		}
 
-		if iv >= -0x80 && iv < 0x80 {
-			return []byte{_doubleByteTag, byte(iv)}, nil
+		if iv >= _doubleOneByteMin && iv <= _doubleOneByteMax {
+			return []byte{_doubleOneByteTag, byte(int8(iv))}, nil
 		}
 
-		if iv >= -0x8000 && iv < 0x8000 {
-			return []byte{_doubleByteTag, byte(iv >> 8), byte(iv)}, nil
+		if iv >= _doubleTwoByteMin && iv <= _doubleTwoByteMax {
+			return []byte{_doubleTwoByteTag, byte(iv >> 8), byte(iv)}, nil
 		}
 		return nil, newCodecError("encodeDouble", "unsupported double range: %v", iv)
 	}
 
+	f32 := float32(value)
+	f3264 := float64(f32)
+	if f3264 == value {
+		bits := math.Float32bits(f32)
+		return []byte{_doubleFourByteTag,
+			byte(bits >> 24),
+			byte(bits >> 16),
+			byte(bits >> 8),
+			byte(bits)}, nil
+	}
+
 	bits := uint64(math.Float64bits(value))
-	return []byte{_doubleStartTag,
+	return []byte{_doubleLongStartTag,
 		byte(bits >> 56),
 		byte(bits >> 48),
 		byte(bits >> 40),
@@ -95,13 +120,8 @@ func encodeDouble(value float64) ([]byte, error) {
 		byte(bits)}, nil
 }
 
-func doubleTag(tag byte) bool {
-	switch tag {
-	case _long4ByteStartTag, _doubleMillTag, _doubleZeroTag, _doubleOneTag, _doubleByteTag, _doubleShortTag, _doubleStartTag:
-		return true
-	default:
-		return false
-	}
+func decodeDouble(reader *bufio.Reader) (float64, error) {
+	return decodeDoubleValue(reader, _tagRead)
 }
 
 func decodeDoubleValue(reader *bufio.Reader, flag int32) (float64, error) {
@@ -111,29 +131,33 @@ func decodeDoubleValue(reader *bufio.Reader, flag int32) (float64, error) {
 	}
 
 	switch tag {
-	case _long4ByteStartTag, _doubleMillTag:
-		i32, err := decodeInt(reader)
-		if err != nil {
-			return 0, err
-		}
-		return float64(i32), nil
 	case _doubleZeroTag:
 		return float64(0), nil
 	case _doubleOneTag:
 		return float64(1), nil
-	case _doubleByteTag:
+	case _doubleOneByteTag:
 		bt, err := readTag(reader)
 		if err != nil {
 			return 0, err
 		}
-		return float64(bt), nil
-	case _doubleShortTag:
+		return float64(int8(bt)), nil
+	case _doubleTwoByteTag:
 		bf, err := readBytes(reader, 2)
 		if err != nil {
 			return 0, err
 		}
-		return float64(int(bf[0])*256 + int(bf[1])), nil
-	case _doubleStartTag:
+		u16 := binary.BigEndian.Uint16(bf)
+		i16 := *(*int16)(unsafe.Pointer(&u16))
+		return float64(i16), nil
+	case _doubleFourByteTag:
+		buf, err := readBytes(reader, 4)
+		if err != nil {
+			return 0, err
+		}
+		bits := binary.BigEndian.Uint32(buf)
+		f32 := math.Float32frombits(bits)
+		return float64(f32), nil
+	case _doubleLongStartTag:
 		buf, err := readBytes(reader, 8)
 		if err != nil {
 			return 0, err
