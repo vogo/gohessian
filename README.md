@@ -10,9 +10,106 @@ It's cloned from [viant/gohessian](README_old.md) , and do the following works:
 
 ## How to Use
 
-[test examples](tests) are great start guide to use this library. 
+### name map and type map
 
-[This example](tests/javamessage_test.go) shows how to integration with java.
+- `name map`: a `map[string]string` used by `encoder` to determine the class name of a object
+- `type map`: a `map[string]reflect.Type` used by `decoder` to determine the type of instance to initialize
+
+You can use function `hessian.ExtractTypeNameMap(interface{})` to generate both the type map and name map. 
+It's the recommendation way. 
+Of course, you can create by yourself, but make sure them contain all names and types which encoder and decoder needed.
+
+### simple example
+
+```golang
+type circular struct {
+	Num      int
+	Previous *circular
+	Next     *circular
+}
+
+func main() {
+	c := &circular{}
+	c.Num = 12345
+	c.Previous = c
+	c.Next = c
+
+	// create hessian serializer
+	serializer := hessian.NewSerializer(hessian.ExtractTypeNameMap(c))
+
+	fmt.Println("source object: ", c)
+
+	// encode to bytes
+	bytes, err := serializer.ToBytes(c)
+	if err != nil {
+		panic(err)
+	}
+
+	// decode from bytes
+	decoded, err := serializer.ToObject(bytes)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("decode object: ", decoded)
+}
+```
+
+### using java class name
+
+You can define a function `HessianCodecName() string` for your struct if using `hessian.ExtractTypeNameMap(interface{})` to generate type map and name map.
+
+```
+type TraceVo struct {
+	Key   string
+	Value string
+}
+
+func (TraceVo) HessianCodecName() string {
+	return "hessian.TraceVo"
+}
+
+typeMap,nameMap := hessian.ExtractTypeNameMap(&TraceVo{})
+```
+
+If you create type map and name map manually, you should also add the java class name mapping.
+
+### concurrently
+
+`hessian.NewSerializer` contains serialization processing data, so one serializer can't be used concurrently, you should create a new one when needed.
+
+If there is only one type of data to serialize , a goroutine can continue use the same serializer to `WriteObject()` or `ReadObject()`.
+
+
+### streaming transport
+
+The following is a client-server streaming transport example:
+
+server side:
+```golang
+_,nameMap := ExtractTypeNameMap(object)
+encoder := NewEncoder(outputStreamWriter, nameMap) // write stream to outputStreamWriter
+for {
+    data := getNewData()
+    err = encoder.WriteObject(data) // write new data
+    if err != nil {
+        panic(err)
+    }
+}
+```
+
+client side:
+```golang
+typeMap,_ := ExtractTypeNameMap(object)
+decoder := NewDecoder(inputStreamReader, typeMap) // read stream from inputStreamReader
+for {
+    obj,err := decoder.ReadObject() // read new object
+    if err != nil {
+        panic(err)
+    }
+    
+    // process obj
+}
+```
 
 ## Reference
 - [Hessian 2.0 Serialization Protocol](http://hessian.caucho.com/doc/hessian-serialization.html)

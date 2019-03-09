@@ -25,7 +25,7 @@ import (
 func buildBenchmarkSerializer(c interface{}, b assert.TestingT) Serializer {
 	buffer := bytes.NewBuffer(nil)
 	reader := bufio.NewReader(buffer)
-	serializer := NewGoHessian(ExtractTypeNameMap(c))
+	serializer := NewSerializer(ExtractTypeNameMap(c))
 	err := serializer.WriteObject(buffer, c)
 	_, err = serializer.ReadObject(reader)
 	assert.Nil(b, err)

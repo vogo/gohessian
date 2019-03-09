@@ -113,6 +113,11 @@ func (d *Decoder) ReadObjectWithType(typ reflect.Type, name string) (interface{}
 	return EnsureInterface(d.ReadData())
 }
 
+//ReadObject read new object from reader
+func (d *Decoder) ReadObject() (interface{}, error) {
+	return EnsureInterface(d.ReadData())
+}
+
 func (d *Decoder) readBoolean(flag int32) (bool, error) {
 	return decodeBooleanValue(d.reader, flag)
 }

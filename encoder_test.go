@@ -86,7 +86,7 @@ func TestSerializer(t *testing.T) {
 	mp1 := map[int32]string{1: "test1", 2: "test2", 3: "test3"}
 	p := P{1, 2, 3, "ABC"}
 	bb := BB{"AB", ts4, mp1, p, 4}
-	gh := NewGoHessian(nil, nil)
+	gh := NewSerializer(nil, nil)
 	bt, err := gh.ToBytes(bb)
 	if err != nil {
 		t.Error("serializer error:", err)

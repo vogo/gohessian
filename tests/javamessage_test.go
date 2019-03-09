@@ -96,8 +96,8 @@ func TestJavaMessageEncode(t *testing.T) {
 		t.Fail()
 	}
 
-	t.Log(base64.StdEncoding.EncodeToString(bt))
-	t.Log(string(bt))
+	t.Log("java message go base64: ", base64.StdEncoding.EncodeToString(bt))
+	t.Log("java message go string: ", string(bt))
 	decodeMsg, err := decodeJavaMessage(t, bt, typeMap)
 	if err != nil {
 		t.Error(err)
@@ -114,7 +114,7 @@ func BenchmarkJavaMessageCodec(b *testing.B) {
 
 	buffer := bytes.NewBuffer(nil)
 	reader := bufio.NewReader(buffer)
-	serializer := hessian.NewGoHessian(hessian.ExtractTypeNameMap(c))
+	serializer := hessian.NewSerializer(hessian.ExtractTypeNameMap(c))
 	err := serializer.WriteObject(buffer, c)
 	_, err = serializer.ReadObject(reader)
 	assert.Nil(b, err)

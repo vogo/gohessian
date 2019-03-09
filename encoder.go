@@ -61,6 +61,12 @@ func (e *Encoder) Reset(w io.Writer) {
 	e.clsDefList = make([]ClassDef, 0, 11)
 }
 
+//WriteObject write object
+func (e *Encoder) WriteObject(data interface{}) error {
+	_, err := e.WriteData(data)
+	return err
+}
+
 //WriteData write object
 func (e *Encoder) WriteData(data interface{}) (int, error) {
 	if data == nil {

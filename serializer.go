@@ -43,8 +43,8 @@ type goHessian struct {
 	decoder *Decoder
 }
 
-//NewGoHessian init
-func NewGoHessian(typMap map[string]reflect.Type, nameMap map[string]string) Serializer {
+//NewSerializer init
+func NewSerializer(typMap map[string]reflect.Type, nameMap map[string]string) Serializer {
 	if typMap == nil {
 		typMap = make(map[string]reflect.Type, 11)
 	}
@@ -61,8 +61,7 @@ func (gh *goHessian) WriteObject(w io.Writer, object interface{}) error {
 	} else {
 		gh.encoder.Reset(w)
 	}
-	_, err := gh.encoder.WriteData(object)
-	return err
+	return gh.encoder.WriteObject(object)
 }
 
 // Write object to writer continuously , it must be called after calling goHessian.WriteObject
@@ -91,7 +90,7 @@ func (gh *goHessian) ReadObject(r *bufio.Reader) (interface{}, error) {
 	} else {
 		gh.decoder.Reset(r)
 	}
-	return EnsureInterface(gh.decoder.ReadData())
+	return gh.decoder.ReadObject()
 }
 
 // Read from reader continuously, it must be called after calling goHessian.ReadObject
