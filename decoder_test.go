@@ -19,20 +19,95 @@
 package hessian
 
 import (
-	"bytes"
+	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
+	"time"
 )
 
-func TestMethod_pkg(t *testing.T) {
-	br := bytes.NewBuffer(nil)
-	e := NewEncoder(br, nil)
-	typ := reflect.TypeOf(e)
-	for m := 0; m < typ.NumMethod(); m++ {
-		method := typ.Method(m)
-		mtype := method.Type
-		mname := method.Name
-		t.Log("pkg", method.PkgPath, len(method.PkgPath), "type", mtype, mname)
+func TestComplexStruct(t *testing.T) {
+	type UserName struct {
+		FirstName string
+		LastName  string
+	}
+	type Person struct {
+		UserName
+		Tags []string
+		Age  int32
+		Sex  bool
 	}
 
+	type JOB struct {
+		Title   string
+		Company string
+		From    time.Time
+	}
+
+	type Worker struct {
+		Person
+		Job        JOB
+		HistoryJob []JOB
+	}
+
+	name := UserName{
+		FirstName: "John",
+		LastName:  "Doe",
+	}
+
+	person := Person{
+		UserName: name,
+	}
+
+	res := doTestHessianEncodeDecode(t, person)
+
+	decodePerson := res.(*Person)
+	assert.Equal(t, person.FirstName, decodePerson.FirstName)
+	assert.Equal(t, person.LastName, decodePerson.LastName)
+
+	person = Person{
+		UserName: name,
+		Tags:     []string{"rich", "handsome"},
+		Age:      18,
+		Sex:      true,
+	}
+
+	date := time.Unix(0, (time.Now().UnixNano()/int64(time.Millisecond))*int64(time.Millisecond))
+
+	worker := Worker{
+		Person: person,
+		Job:    JOB{Title: "cto", Company: "facebook"},
+		HistoryJob: []JOB{
+			{Title: "manager", Company: "google", From: date},
+			{Title: "ceo", Company: "microsoft", From: date.Add(time.Hour * 24 * 365)},
+		},
+	}
+
+	res = doTestHessianEncodeDecode(t, worker)
+	decodeObject := res.(*Worker)
+	assert.True(t, reflect.DeepEqual(worker, *decodeObject))
+}
+
+func doTestHessianEncodeDecode(t *testing.T, object interface{}) interface{} {
+	t.Log("--------------------")
+	t.Log("object:", object)
+	typeMap, nameMap := ExtractTypeNameMap(object)
+	bt, err := ToBytes(object, nameMap)
+	if err != nil {
+		t.Error(err)
+		t.FailNow()
+	}
+	t.Log("bytes:", string(bt))
+	t.Log("bytes len:", len(bt))
+
+	typ := reflect.TypeOf(object)
+	t.Log("type map:", TypeMapOf(typ))
+	res, err := ToObject(bt, typeMap)
+	if err != nil {
+		t.Error(err)
+		t.FailNow()
+	}
+
+	t.Log("decode object :", res)
+	t.Log("type of decode object:", reflect.TypeOf(res))
+	return res
 }

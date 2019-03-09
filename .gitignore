@@ -1,5 +1,6 @@
 .idea
 
-example/temp_test.go
-example/local_test.go
+*.cpu
+*.test
+*.prof
 

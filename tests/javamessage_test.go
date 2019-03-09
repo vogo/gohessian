@@ -1,6 +1,8 @@
 package tests
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/base64"
 	"errors"
 	"reflect"
@@ -62,12 +64,8 @@ func encodeJavaMessage(t *testing.T, msg *Message, nameMap map[string]string) ([
 	return hessian.ToBytes(*msg, nameMap)
 }
 
-func TestJavaMessageEncode(t *testing.T) {
-	typeMap, nameMap := hessian.ExtractTypeNameMap(Message{})
-	t.Log(typeMap)
-	t.Log(nameMap)
-
-	msg := &Message{
+func buildJavaMessageObject() *Message {
+	return &Message{
 		Title: "t1",
 		Msg: []TraceData{
 			{
@@ -84,6 +82,13 @@ func TestJavaMessageEncode(t *testing.T) {
 			},
 		},
 	}
+}
+
+func TestJavaMessageEncode(t *testing.T) {
+	msg := buildJavaMessageObject()
+	typeMap, nameMap := hessian.ExtractTypeNameMap(msg)
+	t.Log(typeMap)
+	t.Log(nameMap)
 
 	bt, err := encodeJavaMessage(t, msg, nameMap)
 	if err != nil {
@@ -102,7 +107,26 @@ func TestJavaMessageEncode(t *testing.T) {
 	t.Log(decodeMsg)
 	assert.Equal(t, msg.Title, decodeMsg.Title)
 	assert.Equal(t, len(msg.Msg), len(decodeMsg.Msg))
+}
 
+func BenchmarkJavaMessageCodec(b *testing.B) {
+	c := buildJavaMessageObject()
+
+	buffer := bytes.NewBuffer(nil)
+	reader := bufio.NewReader(buffer)
+	serializer := hessian.NewGoHessian(hessian.ExtractTypeNameMap(c))
+	err := serializer.WriteObject(buffer, c)
+	_, err = serializer.ReadObject(reader)
+	assert.Nil(b, err)
+	err = serializer.Write(c)
+	assert.Nil(b, err)
+	_, err = serializer.Read()
+	assert.Nil(b, err)
+
+	for i := 0; i < b.N; i++ {
+		serializer.Write(c)
+		serializer.Read()
+	}
 }
 
 func TestJavaMessageDecode(t *testing.T) {

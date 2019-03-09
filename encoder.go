@@ -34,13 +34,13 @@ type Encoder struct {
 //NewEncoder new
 func NewEncoder(w io.Writer, np map[string]string) *Encoder {
 	if np == nil {
-		np = make(map[string]string, 17)
+		np = make(map[string]string, 11)
 	}
 	encoder := &Encoder{
 		writer:     w,
-		clsDefList: make([]ClassDef, 0, 17),
+		clsDefList: make([]ClassDef, 0, 11),
 		nameMap:    np,
-		refMap:     make(map[uintptr]int, 17),
+		refMap:     make(map[uintptr]int, 11),
 	}
 	return encoder
 }
@@ -58,7 +58,7 @@ func (e *Encoder) RegisterNameMap(mp map[string]string) {
 //Reset reset
 func (e *Encoder) Reset(w io.Writer) {
 	e.writer = w
-	e.clsDefList = make([]ClassDef, 0, 17)
+	e.clsDefList = make([]ClassDef, 0, 11)
 }
 
 //WriteData write object
@@ -68,14 +68,18 @@ func (e *Encoder) WriteData(data interface{}) (int, error) {
 		return 1, nil
 	}
 	source := data
-	v := UnpackPtrValue(reflect.ValueOf(data))
+	v := reflect.ValueOf(data)
 
-	if !IsRawKind(v.Kind()) && IsZero(v) {
-		e.writeBT(_nilTag)
-		return 1, nil
+	if v.Kind() == reflect.Ptr {
+		v = UnpackPtr(v)
+
+		if !v.IsValid() {
+			e.writeBT(_nilTag)
+			return 1, nil
+		}
+
+		data = v.Interface()
 	}
-
-	data = v.Interface()
 
 	switch v.Kind() {
 	case reflect.Bool:

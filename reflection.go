@@ -197,11 +197,6 @@ func TypeName(t reflect.Type) string {
 	return n
 }
 
-//IsZero value
-func IsZero(v reflect.Value) bool {
-	return !v.IsValid() || reflect.DeepEqual(v.Interface(), reflect.Zero(v.Type()).Interface())
-}
-
 // RawValue unpack value to raw value.
 // NOTE: it may be the zero value
 // return value of pointer pointed if it's pointer
@@ -224,6 +219,14 @@ func UnpackPtrType(typ reflect.Type) reflect.Type {
 // return the pointer if its elem is zero value, because lots of operations on zero value is invalid
 func UnpackPtrValue(v reflect.Value) reflect.Value {
 	for v.Kind() == reflect.Ptr && v.Elem().IsValid() {
+		v = v.Elem()
+	}
+	return v
+}
+
+// UnpackPtr unpack pointer value to original value
+func UnpackPtr(v reflect.Value) reflect.Value {
+	for v.Kind() == reflect.Ptr {
 		v = v.Elem()
 	}
 	return v

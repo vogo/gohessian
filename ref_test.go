@@ -53,11 +53,16 @@ func doTestCircularRef(t *testing.T, c *circularT, name string) *circularT {
 	return c2
 }
 
-func TestBasicCircularRef(t *testing.T) {
+func buildSingleCircularObject() *circularT {
 	c1 := &circularT{}
 	c1.Num = 12345
 	c1.Previous = c1
 	c1.Next = c1
+	return c1
+}
+
+func TestBasicCircularRef(t *testing.T) {
+	c1 := buildSingleCircularObject()
 
 	d1 := doTestCircularRef(t, c1, "basic")
 
@@ -66,23 +71,24 @@ func TestBasicCircularRef(t *testing.T) {
 	assert.Equal(t, d1, d1.Next)
 }
 
-func TestComplexCircularRef(t *testing.T) {
+func buildCircularObject() (*circularT, *circularT, *circularT, *circularT) {
 	c1 := &circularT{Num: 111}
 	c2 := &circularT{Num: 222}
 	c3 := &circularT{Num: 333}
 	c4 := &circularT{Num: 444}
-
 	c1.Previous = c4
 	c1.Next = c2
-
 	c2.Previous = c1
 	c2.Next = c3
-
 	c3.Previous = c2
 	c3.Next = c4
-
 	c4.Previous = c3
 	c4.Next = c1
+	return c1, c2, c3, c4
+}
+
+func TestComplexCircularRef(t *testing.T) {
+	c1, c2, c3, c4 := buildCircularObject()
 
 	d1 := doTestCircularRef(t, c1, "complex")
 	d2 := d1.Next
@@ -120,7 +126,7 @@ func logRefObject(t *testing.T, n string, i interface{}) {
 	t.Log(n, i)
 }
 
-func complexLevelPerson() *personT {
+func buildComplexLevelPerson() *personT {
 	p1 := &personT{Name: "p1"}
 	p2 := &personT{Name: "p2"}
 	p3 := &personT{Name: "p3"}
@@ -160,7 +166,7 @@ func complexLevelPerson() *personT {
 }
 
 func TestComplexLevelRef(t *testing.T) {
-	p1 := complexLevelPerson()
+	p1 := buildComplexLevelPerson()
 	decoded := doTestRef(t, p1, "person")
 
 	d1, ok := decoded.(*personT)

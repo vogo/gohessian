@@ -26,56 +26,56 @@ import (
 )
 
 func TestLong(t *testing.T) {
-	LongTest(t, -7, 1)
-	LongTest(t, -8, 1)
-	LongTest(t, -9, 2)
-	LongTest(t, -3, 1)
-	LongTest(t, 14, 1)
-	LongTest(t, 15, 1)
-	LongTest(t, 16, 2)
-	LongTest(t, 7, 1)
+	doLongTest(t, -7, 1)
+	doLongTest(t, -8, 1)
+	doLongTest(t, -9, 2)
+	doLongTest(t, -3, 1)
+	doLongTest(t, 14, 1)
+	doLongTest(t, 15, 1)
+	doLongTest(t, 16, 2)
+	doLongTest(t, 7, 1)
 
-	LongTest(t, -2047, 2)
-	LongTest(t, -2048, 2)
-	LongTest(t, -2049, 3)
-	LongTest(t, -1025, 2)
-	LongTest(t, 2046, 2)
-	LongTest(t, 2047, 2)
-	LongTest(t, 2048, 3)
-	LongTest(t, 1023, 2)
+	doLongTest(t, -2047, 2)
+	doLongTest(t, -2048, 2)
+	doLongTest(t, -2049, 3)
+	doLongTest(t, -1025, 2)
+	doLongTest(t, 2046, 2)
+	doLongTest(t, 2047, 2)
+	doLongTest(t, 2048, 3)
+	doLongTest(t, 1023, 2)
 
-	LongTest(t, -262143, 3)
-	LongTest(t, -262144, 3)
-	LongTest(t, -262145, 5)
-	LongTest(t, -162144, 3)
-	LongTest(t, 262142, 3)
-	LongTest(t, 262143, 3)
-	LongTest(t, 262144, 5)
-	LongTest(t, 162143, 3)
+	doLongTest(t, -262143, 3)
+	doLongTest(t, -262144, 3)
+	doLongTest(t, -262145, 5)
+	doLongTest(t, -162144, 3)
+	doLongTest(t, 262142, 3)
+	doLongTest(t, 262143, 3)
+	doLongTest(t, 262144, 5)
+	doLongTest(t, 162143, 3)
 
-	LongTest(t, -362143, 5)
-	LongTest(t, -362144, 5)
-	LongTest(t, -362145, 5)
-	LongTest(t, -462144, 5)
-	LongTest(t, 362142, 5)
-	LongTest(t, 362143, 5)
-	LongTest(t, 362144, 5)
-	LongTest(t, 462143, 5)
-	LongTest(t, math.MinInt32, 5)
-	LongTest(t, math.MaxInt32, 5)
-	LongTest(t, int64(math.MinInt32)-1, 9)
-	LongTest(t, int64(math.MaxInt32)+1, 9)
+	doLongTest(t, -362143, 5)
+	doLongTest(t, -362144, 5)
+	doLongTest(t, -362145, 5)
+	doLongTest(t, -462144, 5)
+	doLongTest(t, 362142, 5)
+	doLongTest(t, 362143, 5)
+	doLongTest(t, 362144, 5)
+	doLongTest(t, 462143, 5)
+	doLongTest(t, math.MinInt32, 5)
+	doLongTest(t, math.MaxInt32, 5)
+	doLongTest(t, int64(math.MinInt32)-1, 9)
+	doLongTest(t, int64(math.MaxInt32)+1, 9)
 
-	LongTest(t, -3621447777, 9)
-	LongTest(t, -4621447777, 9)
-	LongTest(t, 3621437777, 9)
-	LongTest(t, 4621437777, 9)
+	doLongTest(t, -3621447777, 9)
+	doLongTest(t, -4621447777, 9)
+	doLongTest(t, 3621437777, 9)
+	doLongTest(t, 4621437777, 9)
 
-	LongTest(t, math.MinInt64, 9)
-	LongTest(t, math.MaxInt64, 9)
+	doLongTest(t, math.MinInt64, 9)
+	doLongTest(t, math.MaxInt64, 9)
 }
 
-func LongTest(t *testing.T, i64 int64, length int) {
+func doLongTest(t *testing.T, i64 int64, length int) {
 	t.Log("--------------")
 	// t.Logf("i64: %d , %x", i64, i64)
 
@@ -94,4 +94,26 @@ func LongTest(t *testing.T, i64 int64, length int) {
 	// t.Logf("d64: %d , %x", d64, d64)
 
 	assert.Equal(t, i64, d64)
+}
+
+//Long Grammar
+//
+//long ::= L b7 b6 b5 b4 b3 b2 b1 b0
+//::= [xd8-xef]
+//::= [xf0-xff] b0
+//::= [x38-x3f] b1 b0
+//::= x4c b3 b2 b1 b0
+// -------------------------------------
+//4.7.1.  Compact: single octet longs
+//Longs between -8 and 15 are represented by a single octet in the range xd8 to xef.
+//
+//value = (code - 0xe0)
+// -------------------------------------
+func TestLongTagValue(t *testing.T) {
+	var l8 int64 = -8
+	var l15 int64 = 15
+	var zero int64 = 0xe0
+
+	assert.True(t, byte(l8+zero) == 0xd8)
+	assert.True(t, byte(l15+zero) == 0xef)
 }

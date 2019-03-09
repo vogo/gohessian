@@ -21,29 +21,6 @@ import (
 	"testing"
 )
 
-func TestIsZero(t *testing.T) {
-	var p *string
-	v := reflect.ValueOf(p)
-
-	assert.True(t, v.IsValid())
-	assert.True(t, IsZero(v))
-
-	assert.Equal(t, uintptr(0), v.Pointer())
-
-	v = v.Elem()
-	assert.False(t, v.IsValid())
-	assert.True(t, IsZero(v))
-
-	var b *bool
-	bv := reflect.ValueOf(b)
-	assert.True(t, bv.IsValid())
-	assert.True(t, IsZero(bv))
-
-	bv = bv.Elem()
-	assert.False(t, bv.IsValid())
-	assert.True(t, IsZero(bv))
-}
-
 func TestExtractTypeMap(t *testing.T) {
 	type ServerApi struct {
 		ApiName string

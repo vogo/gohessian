@@ -213,7 +213,6 @@ func TestEncoder_WriteObject(t *testing.T) {
 		return
 	}
 	t.Log("decode map", t7, "bt2", len(bt2))
-
 }
 
 func TestEncoder_WriteList(t *testing.T) {

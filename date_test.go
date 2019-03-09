@@ -50,3 +50,23 @@ func TestDate(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, date.UnixNano(), d.UnixNano())
 }
+
+func TestDateInStruct(t *testing.T) {
+	type S struct {
+		D time.Time
+	}
+
+	s := &S{}
+	t.Log(s)
+
+	typeMap, nameMap := ExtractTypeNameMap(s)
+	bt, err := ToBytes(s, nameMap)
+	t.Logf("data struct hex: %s", string(bt))
+	assert.Nil(t, err)
+
+	decoded, err := ToObject(bt, typeMap)
+	assert.Nil(t, err)
+	t.Log(decoded)
+
+	assert.True(t, reflect.DeepEqual(s, decoded))
+}

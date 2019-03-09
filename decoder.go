@@ -58,7 +58,7 @@ type Decoder struct {
 //NewDecoder new
 func NewDecoder(r *bufio.Reader, typ map[string]reflect.Type) *Decoder {
 	if typ == nil {
-		typ = make(map[string]reflect.Type, 17)
+		typ = make(map[string]reflect.Type, 11)
 	}
 	decode := &Decoder{
 		typMap: typ,
@@ -90,9 +90,9 @@ func (d *Decoder) RegisterVal(key string, val interface{}) {
 //Reset reset
 func (d *Decoder) Reset(r *bufio.Reader) {
 	d.reader = r
-	d.typList = make([]string, 0, 17)
-	d.clsDefList = make([]ClassDef, 0, 17)
-	d.refList = make([]reflect.Value, 0, 17)
+	d.typList = make([]string, 0, 11)
+	d.clsDefList = make([]ClassDef, 0, 11)
+	d.refList = make([]reflect.Value, 0, 11)
 }
 
 func (d *Decoder) readTag() (byte, error) {

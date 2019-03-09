@@ -22,31 +22,41 @@ import (
 	"testing"
 )
 
-func initBenchmarkTest(b *testing.B) (Serializer, *personT) {
-	c := complexLevelPerson()
-
+func buildBenchmarkSerializer(c interface{}, b assert.TestingT) Serializer {
 	buffer := bytes.NewBuffer(nil)
 	reader := bufio.NewReader(buffer)
-
-	goHessian := NewGoHessian(ExtractTypeNameMap(c))
-	err := goHessian.WriteObject(buffer, c)
-
-	_, err = goHessian.ReadObject(reader)
+	serializer := NewGoHessian(ExtractTypeNameMap(c))
+	err := serializer.WriteObject(buffer, c)
+	_, err = serializer.ReadObject(reader)
 	assert.Nil(b, err)
-
-	err = goHessian.Write(c)
+	err = serializer.Write(c)
 	assert.Nil(b, err)
-	_, err = goHessian.Read()
+	_, err = serializer.Read()
 	assert.Nil(b, err)
-
-	return goHessian, c
+	return serializer
 }
 
-func BenchmarkEncodeAndDecode(b *testing.B) {
-	serializer, c := initBenchmarkTest(b)
+func TestBuildSerializer(t *testing.T) {
+	buildBenchmarkSerializer(buildComplexLevelPerson(), t)
+}
+
+func doBenchmarkTest(b *testing.B, c interface{}) {
+	serializer := buildBenchmarkSerializer(c, b)
 	for i := 0; i < b.N; i++ {
 		serializer.Write(c)
 		serializer.Read()
 	}
+}
 
+func BenchmarkComplexLevelObject(b *testing.B) {
+	doBenchmarkTest(b, buildComplexLevelPerson())
+}
+
+func BenchmarkSingleCircularObject(b *testing.B) {
+	doBenchmarkTest(b, buildSingleCircularObject())
+}
+
+func BenchmarkCircularObject(b *testing.B) {
+	c, _, _, _ := buildCircularObject()
+	doBenchmarkTest(b, c)
 }

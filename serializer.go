@@ -44,14 +44,14 @@ type goHessian struct {
 }
 
 //NewGoHessian init
-func NewGoHessian(typMap map[string]reflect.Type, nmeMap map[string]string) Serializer {
+func NewGoHessian(typMap map[string]reflect.Type, nameMap map[string]string) Serializer {
 	if typMap == nil {
-		typMap = make(map[string]reflect.Type, 17)
+		typMap = make(map[string]reflect.Type, 11)
 	}
-	if nmeMap == nil {
-		nmeMap = make(map[string]string, 17)
+	if nameMap == nil {
+		nameMap = make(map[string]string, 11)
 	}
-	return &goHessian{typMap: typMap, nameMap: nmeMap,}
+	return &goHessian{typMap: typMap, nameMap: nameMap,}
 }
 
 // WriteObject to writer

@@ -26,47 +26,47 @@ import (
 )
 
 func TestInt(t *testing.T) {
-	IntTest(t, -17, 2)
-	IntTest(t, -16, 1)
-	IntTest(t, -15, 1)
-	IntTest(t, -11, 1)
-	IntTest(t, 46, 1)
-	IntTest(t, 47, 1)
-	IntTest(t, 48, 2)
-	IntTest(t, 21, 1)
+	doIntTest(t, -17, 2)
+	doIntTest(t, -16, 1)
+	doIntTest(t, -15, 1)
+	doIntTest(t, -11, 1)
+	doIntTest(t, 46, 1)
+	doIntTest(t, 47, 1)
+	doIntTest(t, 48, 2)
+	doIntTest(t, 21, 1)
 
-	IntTest(t, -2047, 2)
-	IntTest(t, -2048, 2)
-	IntTest(t, -2049, 3)
-	IntTest(t, -1025, 2)
-	IntTest(t, 2046, 2)
-	IntTest(t, 2047, 2)
-	IntTest(t, 2048, 3)
-	IntTest(t, 1023, 2)
+	doIntTest(t, -2047, 2)
+	doIntTest(t, -2048, 2)
+	doIntTest(t, -2049, 3)
+	doIntTest(t, -1025, 2)
+	doIntTest(t, 2046, 2)
+	doIntTest(t, 2047, 2)
+	doIntTest(t, 2048, 3)
+	doIntTest(t, 1023, 2)
 
-	IntTest(t, -262143, 3)
-	IntTest(t, -262144, 3)
-	IntTest(t, -262145, 5)
-	IntTest(t, -162144, 3)
-	IntTest(t, 262142, 3)
-	IntTest(t, 262143, 3)
-	IntTest(t, 262144, 5)
-	IntTest(t, 162143, 3)
+	doIntTest(t, -262143, 3)
+	doIntTest(t, -262144, 3)
+	doIntTest(t, -262145, 5)
+	doIntTest(t, -162144, 3)
+	doIntTest(t, 262142, 3)
+	doIntTest(t, 262143, 3)
+	doIntTest(t, 262144, 5)
+	doIntTest(t, 162143, 3)
 
-	IntTest(t, -362143, 5)
-	IntTest(t, -362144, 5)
-	IntTest(t, -362145, 5)
-	IntTest(t, -462144, 5)
-	IntTest(t, 362142, 5)
-	IntTest(t, 362143, 5)
-	IntTest(t, 362144, 5)
-	IntTest(t, 462143, 5)
+	doIntTest(t, -362143, 5)
+	doIntTest(t, -362144, 5)
+	doIntTest(t, -362145, 5)
+	doIntTest(t, -462144, 5)
+	doIntTest(t, 362142, 5)
+	doIntTest(t, 362143, 5)
+	doIntTest(t, 362144, 5)
+	doIntTest(t, 462143, 5)
 
-	IntTest(t, math.MinInt32, 5)
-	IntTest(t, math.MaxInt32, 5)
+	doIntTest(t, math.MinInt32, 5)
+	doIntTest(t, math.MaxInt32, 5)
 }
 
-func IntTest(t *testing.T, i32 int32, length int) {
+func doIntTest(t *testing.T, i32 int32, length int) {
 	t.Log("--------------")
 	//t.Logf("i32: %d , %x", i32, i32)
 
@@ -85,4 +85,13 @@ func IntTest(t *testing.T, i32 int32, length int) {
 	//t.Logf("d32: %d , %x", d32, d32)
 
 	assert.Equal(t, i32, d32)
+}
+
+func TestIntTagValue(t *testing.T) {
+	var l8 int64 = -8
+	var l15 int64 = 15
+	var zero int64 = 0xe0
+
+	assert.True(t, byte(l8+zero) == 0xd8)
+	assert.True(t, byte(l15+zero) == 0xef)
 }

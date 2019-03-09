@@ -47,7 +47,7 @@ const (
 	_dateSecondStartTag = byte(0x4b)
 )
 
-var _zeroDate = time.Unix(0, 0)
+var _zeroDate time.Time
 var _dateType = reflect.TypeOf(time.Now())
 
 func dateTag(tag byte) bool {
@@ -55,6 +55,9 @@ func dateTag(tag byte) bool {
 }
 
 func encodeDate(date time.Time) []byte {
+	if date.IsZero() {
+		return []byte{_nilTag}
+	}
 	if date.UnixNano()%int64(time.Second) > 0 {
 		value := date.UnixNano() / int64(time.Millisecond)
 
