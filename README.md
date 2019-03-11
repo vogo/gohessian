@@ -57,7 +57,7 @@ func main() {
 
 You can define a function `HessianCodecName() string` for your struct if using `hessian.ExtractTypeNameMap(interface{})` to generate type map and name map.
 
-```
+```golang
 type TraceVo struct {
 	Key   string
 	Value string
