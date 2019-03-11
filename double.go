@@ -47,7 +47,6 @@
 package hessian
 
 import (
-	"bufio"
 	"encoding/binary"
 	"math"
 	"unsafe"
@@ -120,11 +119,11 @@ func encodeDouble(value float64) ([]byte, error) {
 		byte(bits)}, nil
 }
 
-func decodeDouble(reader *bufio.Reader) (float64, error) {
+func decodeDouble(reader ByteRuneReader) (float64, error) {
 	return decodeDoubleValue(reader, _tagRead)
 }
 
-func decodeDoubleValue(reader *bufio.Reader, flag int32) (float64, error) {
+func decodeDoubleValue(reader ByteRuneReader, flag int32) (float64, error) {
 	tag, err := getTag(reader, flag)
 	if err != nil {
 		return 0, err

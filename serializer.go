@@ -19,109 +19,75 @@
 package hessian
 
 import (
-	"bufio"
-	"bytes"
 	"io"
 	"reflect"
 )
 
-//Serializer serializer
+//Serializer a api composite of encoder and decoder
 type Serializer interface {
-	WriteObject(w io.Writer, object interface{}) error
+	WriteTo(w io.Writer, object interface{}) error
 	Write(object interface{}) error
 	ToBytes(interface{}) ([]byte, error)
-	ReadObject(r *bufio.Reader) (interface{}, error)
+
+	ReadFrom(reader ByteRuneReader) (interface{}, error)
 	Read() (interface{}, error)
 	ToObject([]byte) (interface{}, error)
 }
 
-// goHessian the serializer cache struct, which will cache the type map, name map, and the encoder and decoder
+// goHessian the serializer cache struct, a composite of encoder and decoder
 type goHessian struct {
-	typMap  map[string]reflect.Type
-	nameMap map[string]string
 	encoder *Encoder
 	decoder *Decoder
 }
 
 //NewSerializer init
 func NewSerializer(typMap map[string]reflect.Type, nameMap map[string]string) Serializer {
-	if typMap == nil {
-		typMap = make(map[string]reflect.Type, 11)
+	return &goHessian{
+		encoder: NewEncoder(nil, nameMap),
+		decoder: NewDecoder(nil, typMap),
 	}
-	if nameMap == nil {
-		nameMap = make(map[string]string, 11)
-	}
-	return &goHessian{typMap: typMap, nameMap: nameMap,}
 }
 
 // WriteObject to writer
-func (gh *goHessian) WriteObject(w io.Writer, object interface{}) error {
-	if gh.encoder == nil {
-		gh.encoder = NewEncoder(w, gh.nameMap)
-	} else {
-		gh.encoder.Reset(w)
-	}
-	return gh.encoder.WriteObject(object)
+func (gh *goHessian) WriteTo(w io.Writer, object interface{}) error {
+	return gh.encoder.WriteTo(w, object)
 }
 
 // Write object to writer continuously , it must be called after calling goHessian.WriteObject
 func (gh *goHessian) Write(object interface{}) error {
-	if gh.encoder == nil {
-		return newCodecError("Write", "encoder is nil")
-	}
-	_, err := gh.encoder.WriteData(object)
-	return err
+	return gh.encoder.WriteObject(object)
 }
 
 // ToBytes convert object to bytes
 func (gh *goHessian) ToBytes(object interface{}) ([]byte, error) {
-	buffer := bytes.NewBuffer(nil)
-	err := gh.WriteObject(buffer, object)
-	if err != nil {
-		return nil, err
-	}
-	return buffer.Bytes(), nil
+	return gh.encoder.ToBytes(object)
 }
 
 // ReadObject from reader
-func (gh *goHessian) ReadObject(r *bufio.Reader) (interface{}, error) {
-	if gh.decoder == nil {
-		gh.decoder = &Decoder{reader: r, typMap: gh.typMap}
-	} else {
-		gh.decoder.Reset(r)
-	}
-	return gh.decoder.ReadObject()
+func (gh *goHessian) ReadFrom(reader ByteRuneReader) (interface{}, error) {
+	return gh.decoder.ReadFrom(reader)
 }
 
 // Read from reader continuously, it must be called after calling goHessian.ReadObject
 func (gh *goHessian) Read() (interface{}, error) {
-	if gh.decoder == nil {
-		return nil, newCodecError("Read", "decoder is nil")
-	}
-	return EnsureInterface(gh.decoder.ReadData())
+	return gh.decoder.ReadData()
 }
 
 // ToObject convert bytes to object
-func (gh *goHessian) ToObject(ins []byte) (interface{}, error) {
-	return gh.ReadObject(bufio.NewReader(bytes.NewReader(ins)))
+func (gh *goHessian) ToObject(bts []byte) (interface{}, error) {
+	return gh.decoder.ToObject(bts)
 }
 
 // ---------------------------------------------
 
 //ToBytes [NO-CACHE API] serialize object to bytes
 func ToBytes(object interface{}, nameMap map[string]string) ([]byte, error) {
-	buffer := bytes.NewBuffer(nil)
-	e := NewEncoder(buffer, nameMap)
-	_, err := e.WriteData(object)
-	if err != nil {
-		return nil, err
-	}
-	return buffer.Bytes(), nil
+	e := NewEncoder(nil, nameMap)
+	return e.ToBytes(object)
 }
 
 //ToObject [NO-CACHE API] deserialize bytes to object
 func ToObject(ins []byte, typMap map[string]reflect.Type) (interface{}, error) {
-	ioBuf := bufio.NewReader(bytes.NewReader(ins))
-	d := NewDecoder(ioBuf, typMap)
-	return EnsureInterface(d.ReadData())
+	d := NewDecoder(nil, typMap)
+	return d.ToObject(ins)
 }

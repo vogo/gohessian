@@ -37,8 +37,10 @@ import (
 	"time"
 )
 
-var _ = bytes.MinRead
-var _ = reflect.Value{}
+type ByteRuneReader interface {
+	io.Reader
+	io.RuneReader
+}
 
 // ClassDef class def
 type ClassDef struct {
@@ -48,7 +50,7 @@ type ClassDef struct {
 
 //Decoder type
 type Decoder struct {
-	reader     *bufio.Reader
+	reader     ByteRuneReader
 	typMap     map[string]reflect.Type
 	typList    []string
 	refList    []reflect.Value
@@ -56,15 +58,25 @@ type Decoder struct {
 }
 
 //NewDecoder new
-func NewDecoder(r *bufio.Reader, typ map[string]reflect.Type) *Decoder {
+func NewDecoder(r ByteRuneReader, typ map[string]reflect.Type) *Decoder {
 	if typ == nil {
 		typ = make(map[string]reflect.Type, 11)
 	}
 	decode := &Decoder{
 		typMap: typ,
 	}
-	decode.Reset(r)
+	if r != nil {
+		decode.Reset(r)
+	}
 	return decode
+}
+
+//Reset reset
+func (d *Decoder) Reset(r ByteRuneReader) {
+	d.reader = r
+	d.typList = make([]string, 0, 11)
+	d.clsDefList = make([]ClassDef, 0, 11)
+	d.refList = make([]reflect.Value, 0, 11)
 }
 
 //Decode object
@@ -87,14 +99,6 @@ func (d *Decoder) RegisterVal(key string, val interface{}) {
 	d.typMap[key] = reflect.TypeOf(val)
 }
 
-//Reset reset
-func (d *Decoder) Reset(r *bufio.Reader) {
-	d.reader = r
-	d.typList = make([]string, 0, 11)
-	d.clsDefList = make([]ClassDef, 0, 11)
-	d.refList = make([]reflect.Value, 0, 11)
-}
-
 func (d *Decoder) readTag() (byte, error) {
 	return readTag(d.reader)
 }
@@ -103,19 +107,21 @@ func (d *Decoder) readBytes(size int) ([]byte, error) {
 	return readBytes(d.reader, size)
 }
 
-//ReadObjectWithType name is option, if it is nil, use type.Name()
-func (d *Decoder) ReadObjectWithType(typ reflect.Type, name string) (interface{}, error) {
-	//register the type if it did exist
-	if _, ok := d.typMap[name]; ok {
-		hlog.Debugf("overwrite existing type: %s", name)
-	}
-	d.typMap[name] = typ
-	return EnsureInterface(d.ReadData())
+//ToObject decode bytes to object
+func (d *Decoder) ToObject(bts []byte) (interface{}, error) {
+	buf := bufio.NewReader(bytes.NewReader(bts))
+	return d.ReadFrom(buf)
 }
 
 //ReadObject read new object from reader
 func (d *Decoder) ReadObject() (interface{}, error) {
 	return EnsureInterface(d.ReadData())
+}
+
+//ReadFrom read object from target reader
+func (d *Decoder) ReadFrom(reader ByteRuneReader) (interface{}, error) {
+	d.Reset(reader)
+	return d.ReadObject()
 }
 
 func (d *Decoder) readBoolean(flag int32) (bool, error) {

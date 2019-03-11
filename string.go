@@ -48,7 +48,6 @@
 package hessian
 
 import (
-	"bufio"
 	"bytes"
 	"io"
 	"strings"
@@ -118,11 +117,11 @@ func encodeString(value string) []byte {
 	return byteBuf.Bytes()
 }
 
-func decodeString(reader *bufio.Reader) (string, error) {
+func decodeString(reader ByteRuneReader) (string, error) {
 	return decodeStringValue(reader, _tagRead)
 }
 
-func decodeStringValue(reader *bufio.Reader, flag int32) (string, error) {
+func decodeStringValue(reader ByteRuneReader, flag int32) (string, error) {
 	tag, err := getTag(reader, flag)
 	if err != nil {
 		return "", err
@@ -199,7 +198,7 @@ func stringEndTag(tag byte) bool {
 	return tag == _stringFinalChunk || stringShortTag(tag) || stringMiddleTag(tag)
 }
 
-func getStringLen(reader *bufio.Reader, tag byte) (int, error) {
+func getStringLen(reader ByteRuneReader, tag byte) (int, error) {
 	if stringShortTag(tag) {
 		return int(tag - _stringShortLenMin), nil
 	}

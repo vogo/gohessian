@@ -19,6 +19,7 @@
 package hessian
 
 import (
+	"bytes"
 	"io"
 	"reflect"
 )
@@ -37,12 +38,19 @@ func NewEncoder(w io.Writer, np map[string]string) *Encoder {
 		np = make(map[string]string, 11)
 	}
 	encoder := &Encoder{
-		writer:     w,
-		clsDefList: make([]ClassDef, 0, 11),
-		nameMap:    np,
-		refMap:     make(map[uintptr]int, 11),
+		nameMap: np,
+	}
+	if w != nil {
+		encoder.Reset(w)
 	}
 	return encoder
+}
+
+//Reset reset
+func (e *Encoder) Reset(w io.Writer) {
+	e.writer = w
+	e.clsDefList = make([]ClassDef, 0, 11)
+	e.refMap = make(map[uintptr]int, 11)
 }
 
 //RegisterNameType register name type
@@ -55,16 +63,26 @@ func (e *Encoder) RegisterNameMap(mp map[string]string) {
 	e.nameMap = mp
 }
 
-//Reset reset
-func (e *Encoder) Reset(w io.Writer) {
-	e.writer = w
-	e.clsDefList = make([]ClassDef, 0, 11)
-}
-
 //WriteObject write object
 func (e *Encoder) WriteObject(data interface{}) error {
 	_, err := e.WriteData(data)
 	return err
+}
+
+//WriteTo write object to target writer
+func (e *Encoder) WriteTo(w io.Writer, data interface{}) error {
+	e.Reset(w)
+	return e.WriteObject(data)
+}
+
+// ToBytes encode object to bytes
+func (e *Encoder) ToBytes(object interface{}) ([]byte, error) {
+	buffer := bytes.NewBuffer(nil)
+	err := e.WriteTo(buffer, object)
+	if err != nil {
+		return nil, err
+	}
+	return buffer.Bytes(), nil
 }
 
 //WriteData write object

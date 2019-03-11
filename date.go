@@ -34,7 +34,6 @@
 package hessian
 
 import (
-	"bufio"
 	"encoding/binary"
 	"io"
 	"reflect"
@@ -83,11 +82,11 @@ func encodeDate(date time.Time) []byte {
 		byte(value)}
 }
 
-func decodeDate(reader *bufio.Reader) (time.Time, error) {
+func decodeDate(reader ByteRuneReader) (time.Time, error) {
 	return decodeDateValue(reader, _tagRead)
 }
 
-func decodeDateValue(reader *bufio.Reader, flag int32) (time.Time, error) {
+func decodeDateValue(reader ByteRuneReader, flag int32) (time.Time, error) {
 	tag, err := getTag(reader, flag)
 	if err != nil {
 		return _zeroDate, err

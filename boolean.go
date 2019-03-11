@@ -15,10 +15,6 @@
 
 package hessian
 
-import (
-	"bufio"
-)
-
 const (
 	_boolTrueTag  = byte('T')
 	_boolFalseTag = byte('F')
@@ -35,7 +31,7 @@ func encodeBoolean(value bool) []byte {
 	return buf
 }
 
-func decodeBooleanValue(reader *bufio.Reader, flag int32) (bool, error) {
+func decodeBooleanValue(reader ByteRuneReader, flag int32) (bool, error) {
 	tag, err := getTag(reader, flag)
 	if err != nil {
 		return false, err

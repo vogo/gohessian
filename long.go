@@ -45,7 +45,6 @@
 package hessian
 
 import (
-	"bufio"
 	"encoding/binary"
 	"io"
 	"math"
@@ -138,11 +137,11 @@ func longTag(tag byte) bool {
 		(tag == _longStartTag)
 }
 
-func decodeLong(reader *bufio.Reader) (int64, error) {
+func decodeLong(reader ByteRuneReader) (int64, error) {
 	return decodeLongValue(reader, _tagRead)
 }
 
-func decodeLongValue(reader *bufio.Reader, flag int32) (int64, error) {
+func decodeLongValue(reader ByteRuneReader, flag int32) (int64, error) {
 	tag, err := getTag(reader, flag)
 	if err != nil {
 		return 0, err

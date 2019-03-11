@@ -16,7 +16,6 @@
 package hessian
 
 import (
-	"bufio"
 	"io"
 )
 
@@ -46,14 +45,14 @@ func capitalizeName(name string) string {
 	return name
 }
 
-func getTag(reader *bufio.Reader, flag int32) (byte, error) {
+func getTag(reader ByteRuneReader, flag int32) (byte, error) {
 	if flag != _tagRead {
 		return byte(flag), nil
 	}
 	return readTag(reader)
 }
 
-func readTag(reader *bufio.Reader) (byte, error) {
+func readTag(reader ByteRuneReader) (byte, error) {
 	bt, err := readBytes(reader, 1)
 	if err != nil {
 		return 0, err
@@ -61,7 +60,7 @@ func readTag(reader *bufio.Reader) (byte, error) {
 	return bt[0], nil
 }
 
-func readBytes(reader *bufio.Reader, length int) ([]byte, error) {
+func readBytes(reader ByteRuneReader, length int) ([]byte, error) {
 	buf := make([]byte, length)
 	_, err := io.ReadFull(reader, buf)
 	if err != nil {

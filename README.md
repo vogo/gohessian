@@ -1,5 +1,3 @@
-# gohessian
-
 **This is a feature-complete golang hessian serializer.**  
 
 It's cloned from [viant/gohessian](README_old.md) , and do the following works:
@@ -8,9 +6,9 @@ It's cloned from [viant/gohessian](README_old.md) , and do the following works:
 - add [ref](http://hessian.caucho.com/doc/hessian-serialization.html##ref) and [date](http://hessian.caucho.com/doc/hessian-serialization.html##date) features implement
 - more unit tests
 
-## How to Use
+#How to Use
 
-### name map and type map
+## name map and type map
 
 - `name map`: a `map[string]string` used by `encoder` to determine the class name of a object
 - `type map`: a `map[string]reflect.Type` used by `decoder` to determine the type of instance to initialize
@@ -19,7 +17,7 @@ You can use function `hessian.ExtractTypeNameMap(interface{})` to generate both 
 It's the recommendation way. 
 Of course, you can create by yourself, but make sure them contain all names and types which encoder and decoder needed.
 
-### simple example
+## simple example
 
 ```golang
 type circular struct {
@@ -54,7 +52,7 @@ func main() {
 }
 ```
 
-### using java class name
+## using java class name
 
 You can define a function `HessianCodecName() string` for your struct if using `hessian.ExtractTypeNameMap(interface{})` to generate type map and name map.
 
@@ -73,24 +71,23 @@ typeMap,nameMap := hessian.ExtractTypeNameMap(&TraceVo{})
 
 If you create type map and name map manually, you should also add the java class name mapping.
 
-### concurrently
+## concurrently
 
-`hessian.NewSerializer` contains serialization processing data, so one serializer can't be used concurrently, you should create a new one when needed.
+`hessian.NewSerializer` contains serialization processing data, so a serializer can't be used concurrently, you should create a new one when needed.
 
-If there is only one type of data to serialize , a goroutine can continue use the same serializer to `WriteObject()` or `ReadObject()`.
+If there is only one type of data to serialize , a goroutine can continue use the same serializer to `ToBytes()` or `ToObject()`.
 
-
-### streaming transport
+## streaming transport
 
 The following is a client-server streaming transport example:
 
 server side:
 ```golang
-_,nameMap := ExtractTypeNameMap(object)
-encoder := NewEncoder(outputStreamWriter, nameMap) // write stream to outputStreamWriter
+_,nameMap := hessian.ExtractTypeNameMap(object)
+encoder := hessian.NewEncoder(outputStreamWriter, nameMap) // write stream to outputStreamWriter
 for {
     data := getNewData()
-    err = encoder.WriteObject(data) // write new data
+    err = encoder.Write(data) // write new data
     if err != nil {
         panic(err)
     }
@@ -99,10 +96,10 @@ for {
 
 client side:
 ```golang
-typeMap,_ := ExtractTypeNameMap(object)
-decoder := NewDecoder(inputStreamReader, typeMap) // read stream from inputStreamReader
+typeMap,_ := hessian.ExtractTypeNameMap(object)
+decoder := hessian.NewDecoder(inputStreamReader, typeMap) // read stream from inputStreamReader
 for {
-    obj,err := decoder.ReadObject() // read new object
+    obj,err := decoder.Read() // read new object
     if err != nil {
         panic(err)
     }
@@ -111,5 +108,5 @@ for {
 }
 ```
 
-## Reference
+# Reference
 - [Hessian 2.0 Serialization Protocol](http://hessian.caucho.com/doc/hessian-serialization.html)
