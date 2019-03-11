@@ -5,8 +5,9 @@ It's cloned from [viant/gohessian](README_old.md) , and do the following works:
 - large scope refactoring to let code structure simple and human-friendly
 - add [ref](http://hessian.caucho.com/doc/hessian-serialization.html##ref) and [date](http://hessian.caucho.com/doc/hessian-serialization.html##date) features implement
 - more unit tests
+- api refactoring
 
-#How to Use
+# Usage
 
 ## name map and type map
 
