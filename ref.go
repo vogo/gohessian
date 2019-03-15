@@ -53,6 +53,7 @@ package hessian
 
 import (
 	"reflect"
+	"unsafe"
 )
 
 const (
@@ -81,13 +82,13 @@ func (e *Encoder) checkEncodeRefMap(v reflect.Value) (int, bool) {
 	}
 
 	// check whether to ref other object
-	addr := v.Pointer()
+	addr := unsafe.Pointer(v.Pointer())
 	if n, ok := e.refMap[addr]; ok {
 		return n, ok
 	}
 
 	n := len(e.refMap)
-	e.refMap[v.Pointer()] = n
+	e.refMap[addr] = n
 	return 0, false
 }
 

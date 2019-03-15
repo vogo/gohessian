@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"io"
 	"reflect"
+	"unsafe"
 )
 
 //Encoder type
@@ -29,7 +30,7 @@ type Encoder struct {
 	writer     io.Writer
 	clsDefList []ClassDef
 	nameMap    map[string]string
-	refMap     map[uintptr]int
+	refMap     map[unsafe.Pointer]int
 }
 
 //NewEncoder new
@@ -50,7 +51,7 @@ func NewEncoder(w io.Writer, np map[string]string) *Encoder {
 func (e *Encoder) Reset(w io.Writer) {
 	e.writer = w
 	e.clsDefList = make([]ClassDef, 0, 11)
-	e.refMap = make(map[uintptr]int, 11)
+	e.refMap = make(map[unsafe.Pointer]int, 11)
 }
 
 //RegisterNameType register name type
