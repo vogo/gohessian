@@ -79,11 +79,6 @@ func (d *Decoder) Reset(r ByteRuneReader) {
 	d.refList = make([]reflect.Value, 0, 11)
 }
 
-//Decode object
-func (d *Decoder) Decode() (interface{}, error) {
-	return EnsureInterface(d.ReadData())
-}
-
 //RegisterType register key/value type
 func (d *Decoder) RegisterType(key string, value reflect.Type) {
 	d.typMap[key] = value
@@ -107,8 +102,8 @@ func (d *Decoder) readBytes(size int) ([]byte, error) {
 	return readBytes(d.reader, size)
 }
 
-//ToObject decode bytes to object
-func (d *Decoder) ToObject(bts []byte) (interface{}, error) {
+//Decode decode bytes to object
+func (d *Decoder) Decode(bts []byte) (interface{}, error) {
 	buf := bufio.NewReader(bytes.NewReader(bts))
 	return d.ReadFrom(buf)
 }

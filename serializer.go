@@ -58,9 +58,9 @@ func (gh *goHessian) Write(object interface{}) error {
 	return gh.encoder.WriteObject(object)
 }
 
-// ToBytes convert object to bytes
+// Encode convert object to bytes
 func (gh *goHessian) ToBytes(object interface{}) ([]byte, error) {
-	return gh.encoder.ToBytes(object)
+	return gh.encoder.Encode(object)
 }
 
 // ReadObject from reader
@@ -73,21 +73,21 @@ func (gh *goHessian) Read() (interface{}, error) {
 	return gh.decoder.ReadData()
 }
 
-// ToObject convert bytes to object
+// Decode convert bytes to object
 func (gh *goHessian) ToObject(bts []byte) (interface{}, error) {
-	return gh.decoder.ToObject(bts)
+	return gh.decoder.Decode(bts)
 }
 
 // ---------------------------------------------
 
-//ToBytes [NO-CACHE API] serialize object to bytes
+//Encode [NO-CACHE API] serialize object to bytes
 func ToBytes(object interface{}, nameMap map[string]string) ([]byte, error) {
 	e := NewEncoder(nil, nameMap)
-	return e.ToBytes(object)
+	return e.Encode(object)
 }
 
-//ToObject [NO-CACHE API] deserialize bytes to object
+//Decode [NO-CACHE API] deserialize bytes to object
 func ToObject(ins []byte, typMap map[string]reflect.Type) (interface{}, error) {
 	d := NewDecoder(nil, typMap)
-	return d.ToObject(ins)
+	return d.Decode(ins)
 }

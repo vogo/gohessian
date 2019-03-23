@@ -76,8 +76,8 @@ func (e *Encoder) WriteTo(w io.Writer, data interface{}) error {
 	return e.WriteObject(data)
 }
 
-// ToBytes encode object to bytes
-func (e *Encoder) ToBytes(object interface{}) ([]byte, error) {
+// Encode encode object to bytes
+func (e *Encoder) Encode(object interface{}) ([]byte, error) {
 	buffer := bytes.NewBuffer(nil)
 	err := e.WriteTo(buffer, object)
 	if err != nil {

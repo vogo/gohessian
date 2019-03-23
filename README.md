@@ -1,4 +1,4 @@
-**This is a feature-complete golang hessian serializer.**  
+# **This is a feature-complete golang hessian serializer.**  
 
 It's cloned from [viant/gohessian](README_old.md) , and do the following works:
 - fix lots of bugs
@@ -39,13 +39,13 @@ func main() {
 	fmt.Println("source object: ", c)
 
 	// encode to bytes
-	bytes, err := serializer.ToBytes(c)
+	bytes, err := serializer.Encode(c)
 	if err != nil {
 		panic(err)
 	}
 
 	// decode from bytes
-	decoded, err := serializer.ToObject(bytes)
+	decoded, err := serializer.Decode(bytes)
 	if err != nil {
 		panic(err)
 	}
@@ -76,7 +76,7 @@ If you create type map and name map manually, you should also add the java class
 
 `hessian.NewSerializer` contains serialization processing data, so a serializer can't be used concurrently, you should create a new one when needed.
 
-If there is only one type of data to serialize , a goroutine can continue use the same serializer to `ToBytes()` or `ToObject()`.
+If there is only one type of data to serialize , a goroutine can continue use the same serializer to `Encode()` or `Decode()`.
 
 ## streaming transport
 
