@@ -40,7 +40,10 @@ func doTestRef(t *testing.T, c interface{}, name string) interface{} {
 	typMap := TypeMapFrom(c)
 	t.Log("type map:", typMap)
 	decoded, err := ToObject(bytes, typMap)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Log(err.Error())
+		t.FailNow()
+	}
 	t.Logf("%s ref decoded: %v", name, decoded)
 	return decoded
 }

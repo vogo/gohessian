@@ -220,10 +220,8 @@ func (d *Decoder) ReadData() (interface{}, error) {
 		return d.ReadLenTagObject(tag)
 	case tag == _objectTag:
 		return d.readTagObject()
-	case typedListTag(tag):
-		return d.readTypedList(tag)
-	case untypedListTag(tag):
-		return d.readUntypedList(tag)
+	case typedListTag(tag) || untypedListTag(tag):
+		return d.ReadList(int32(tag))
 	default:
 		return nil, newCodecError("readData", "unknown tag: 0x%x", tag)
 	}

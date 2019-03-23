@@ -161,8 +161,8 @@ func (e *Encoder) writeList(data interface{}) (int, error) {
 }
 
 //ReadList read list
-func (d *Decoder) ReadList() (interface{}, error) {
-	tag, err := d.readTag()
+func (d *Decoder) ReadList(flag int32) (interface{}, error) {
+	tag, err := getTag(d.reader, flag)
 	if err != nil {
 		hlog.Debugf("reading tag err:%v", err)
 		return nil, nil //ignore
@@ -172,17 +172,15 @@ func (d *Decoder) ReadList() (interface{}, error) {
 		return d.readBinary(int32(tag))
 	}
 
-	if refTag(tag) {
-		return d.readRef(tag)
-	}
-
 	switch {
+	case tag == _nilTag:
+		return nil, nil
+	case refTag(tag):
+		return d.readRef(tag)
 	case typedListTag(tag):
 		return d.readTypedList(tag)
 	case untypedListTag(tag):
 		return d.readUntypedList(tag)
-	case tag == _nilTag:
-		return nil, nil
 	default:
 		return nil, newCodecError("ReadList", "error list tag: 0x%x", tag)
 	}
@@ -202,17 +200,18 @@ func (d *Decoder) readTypedList(tag byte) (interface{}, error) {
 	isVariableArr := tag == _listVariableTypedTag
 
 	length := -1
-	if listFixedTypedLenTag(tag) {
+	switch {
+	case isVariableArr:
+		length = 0
+	case listFixedTypedLenTag(tag):
 		length = int(tag - _listFixedTypedLenTagMin)
-	} else if tag == _listFixedTypedStartTag {
+	case tag == _listFixedTypedStartTag:
 		ii, err := d.readInt(_tagRead)
 		if err != nil {
 			return nil, newCodecError("readTypedList", err)
 		}
 		length = int(ii)
-	} else if isVariableArr {
-		length = 0
-	} else {
+	default:
 		return nil, newCodecError("readTypedList", "error typed list tag: 0x%x", tag)
 	}
 
@@ -230,7 +229,7 @@ func (d *Decoder) readTypedList(tag byte) (interface{}, error) {
 	holder := d.addDecoderRef(aryValue)
 
 	for j := 0; j < length || isVariableArr; j++ {
-		it, err := d.ReadData()
+		item, err := d.ReadData()
 		if err != nil {
 			if err == io.EOF && isVariableArr {
 				break
@@ -238,11 +237,11 @@ func (d *Decoder) readTypedList(tag byte) (interface{}, error) {
 			return nil, newCodecError("readTypedList", err)
 		}
 
-		if it == nil {
+		if item == nil {
 			break
 		}
 
-		v := EnsureRawValue(it)
+		v := EnsureRawValue(item)
 		if isVariableArr {
 			aryValue = reflect.Append(aryValue, v)
 			holder.change(aryValue)
@@ -262,19 +261,26 @@ func (d *Decoder) readTypedList(tag byte) (interface{}, error) {
 func (d *Decoder) readUntypedList(tag byte) (interface{}, error) {
 	isVariableArr := tag == _listVariableUntypedTag
 
-	var length int
-	if listFixedUntypedLenTag(tag) {
+	length := -1
+
+	switch {
+	case isVariableArr:
+		length = 0
+	case listFixedUntypedLenTag(tag):
 		length = int(tag - _listFixedUntypedLenTagMin)
-	} else if tag == _listFixedUntypedTag {
+	case tag == _listFixedUntypedTag:
 		ii, err := d.readInt(_tagRead)
 		if err != nil {
 			return nil, newCodecError("readUntypedList", err)
 		}
 		length = int(ii)
-	} else if isVariableArr {
-		length = 0
-	} else {
+	default:
 		return nil, newCodecError("readUntypedList", "error untyped list tag: %x", tag)
+	}
+
+	// return when no element
+	if length < 0 {
+		return nil, nil
 	}
 
 	ary := make([]interface{}, length)

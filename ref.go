@@ -60,6 +60,15 @@ const (
 	_refStartTag = 0x51
 )
 
+// used to ref object,list,map
+type _refElem struct {
+	// record the kind of target, objects are the same only if the address and kind are the same
+	kind reflect.Kind
+
+	// ref index
+	index int
+}
+
 func refTag(tag byte) bool {
 	return tag == _refStartTag
 }
@@ -72,23 +81,43 @@ func (e *Encoder) writeRef(index int) (int, error) {
 // return the order number of ref object if found ,
 // otherwise, add the object into the encode ref map
 func (e *Encoder) checkEncodeRefMap(v reflect.Value) (int, bool) {
+	var (
+		kind reflect.Kind
+		addr unsafe.Pointer
+	)
+
 	if v.Kind() == reflect.Ptr {
 		for v.Elem().Kind() == reflect.Ptr {
 			v = v.Elem()
 		}
-	} else if v.Kind() != reflect.Slice {
-		// pack the raw value with a pointer value in order to get the pointer address
-		v = PackPtr(v)
+		kind = v.Elem().Kind()
+		if kind == reflect.Slice || kind == reflect.Map {
+			addr = unsafe.Pointer(v.Elem().Pointer())
+		} else {
+			addr = unsafe.Pointer(v.Pointer())
+		}
+	} else {
+		kind = v.Kind()
+		switch kind {
+		case reflect.Slice, reflect.Map:
+			addr = unsafe.Pointer(v.Pointer())
+		default:
+			addr = unsafe.Pointer(PackPtr(v).Pointer())
+		}
 	}
 
-	// check whether to ref other object
-	addr := unsafe.Pointer(v.Pointer())
-	if n, ok := e.refMap[addr]; ok {
-		return n, ok
+	if elem, ok := e.refMap[addr]; ok {
+		// the array addr is equal to the first elem, which must ignore
+		if elem.kind == kind {
+			// fmt.Printf("-----> find ref: %d, %p, %v, %v\n", elem.index, addr, kind, v)
+			return elem.index, ok
+		}
+		return 0, false
 	}
 
 	n := len(e.refMap)
-	e.refMap[addr] = n
+	e.refMap[addr] = _refElem{kind, n}
+	// fmt.Printf("---> add ref: %d, %p, %v, %v\n", n, addr, kind, v)
 	return 0, false
 }
 
@@ -123,7 +152,7 @@ func (h *_refHolder) add(dest reflect.Value) {
 }
 
 func (d *Decoder) addDecoderRef(v reflect.Value) *_refHolder {
-	//fmt.Printf("addDecoderRef: %v, %v, %p\n", v.Type(), v.Interface(), v.Interface())
+	// fmt.Printf("--> addDecoderRef: %d, %p, %v, %v\n", len(d.refList), v.Interface(), v.Type(), v.Interface())
 	var holder *_refHolder
 	// only slice and array need ref holder , for its address changes when decoding
 	if v.Kind() == reflect.Slice || v.Kind() == reflect.Array {
@@ -132,6 +161,7 @@ func (d *Decoder) addDecoderRef(v reflect.Value) *_refHolder {
 		}
 		v = reflect.ValueOf(holder)
 	}
+
 	d.refList = append(d.refList, v)
 	return holder
 }
@@ -152,5 +182,6 @@ func (d *Decoder) readRef(tag byte) (reflect.Value, error) {
 
 	ref := d.refList[idx]
 
+	// fmt.Printf("----> readRef: %d, %p, %v, %v\n", idx, unsafe.Pointer(ref.Pointer()), ref.Elem().Kind(), ref.Interface())
 	return ref, nil
 }

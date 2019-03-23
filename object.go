@@ -265,6 +265,8 @@ func (d *Decoder) readObjectDef() (interface{}, error) {
 	return nil, newCodecError("readObjectDef", "unknown tag after class def: 0x%x", tag)
 }
 
+// var readObjectIndex = 0
+
 func (d *Decoder) readObject(typ reflect.Type, cls ClassDef) (interface{}, error) {
 	if typ.Kind() != reflect.Struct {
 		return nil, newCodecError("readObject", "expect type struct but get %v", typ)
@@ -272,10 +274,15 @@ func (d *Decoder) readObject(typ reflect.Type, cls ClassDef) (interface{}, error
 	vv := reflect.New(typ)
 	d.addDecoderRef(vv)
 
+	// readObjectIndex++
+	// readObjectIndexCurr := readObjectIndex
+
 	st := vv.Elem()
 	for i := 0; i < len(cls.FieldName); i++ {
 		fldName := cls.FieldName[i]
 		index, err := findField(fldName, typ)
+
+		// fmt.Printf("[%d]  >>>> start read field %s: %v, %v, %p\n", readObjectIndexCurr, fldName, vv.Type(), vv.Interface(), vv.Interface())
 		if err != nil {
 			hlog.Debugf("%s is not found, will skip type ->p %v", fldName, typ)
 			continue
@@ -290,7 +297,7 @@ func (d *Decoder) readObject(typ reflect.Type, cls ClassDef) (interface{}, error
 			return nil, newCodecError("readObject", "failed to decode field '%s'", fldName, err)
 		}
 
-		//fmt.Printf("====> after add field %s: %v, %v, %p\n", fldName, vv.Type(), vv.Interface(), vv.Interface())
+		// fmt.Printf("[%d]  <<<<<< end read field %s: %v, %v, %p\n", readObjectIndexCurr, fldName, vv.Type(), vv.Interface(), vv.Interface())
 	}
 	return vv, nil
 }
@@ -353,9 +360,9 @@ func (d *Decoder) readField(fldName string, fldValue reflect.Value) error {
 		}
 		SetValue(sourceValue, EnsureRawValue(s))
 	case reflect.Map:
-		d.readMap(sourceValue)
+		return d.readMap(sourceValue)
 	case reflect.Slice, reflect.Array:
-		m, err := d.ReadList()
+		m, err := d.ReadList(_tagRead)
 		if err != nil {
 			if err == io.EOF {
 				break // ignore nil slice

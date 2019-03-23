@@ -94,6 +94,18 @@ func (e *Encoder) writeMap(data interface{}) (int, error) {
 	}
 
 	vv = UnpackPtrValue(vv)
+	// check nil map
+	if vv.Kind() == reflect.Ptr && !vv.Elem().IsValid() {
+		e.writeBT(_nilTag)
+		return 0, nil
+	}
+
+	keys := vv.MapKeys()
+	if len(keys) == 0 {
+		e.writeBT(_nilTag)
+		return 0, nil
+	}
+
 	typ := vv.Type()
 
 	mapName, ok := e.nameMap[typ.Name()]
@@ -157,16 +169,25 @@ func (d *Decoder) readTypedMap() (interface{}, error) {
 		mValue = reflect.New(mType)
 	}
 
-	d.addDecoderRef(PackPtr(mValue))
+	mPtrValue := PackPtr(mValue)
+	mValue = mPtrValue.Elem()
+	d.addDecoderRef(mPtrValue)
 
 	for {
 		key, err := d.ReadData()
 		if err != nil {
 			if err == io.EOF {
+				// EOF error means already read the end flag of map
 				break
 			}
 			return nil, err
 		}
+
+		//nil map
+		if key == nil {
+			break
+		}
+
 		value, err := d.ReadData()
 		if err != nil {
 			return nil, err
@@ -199,11 +220,17 @@ func (d *Decoder) readUntypedMap() (interface{}, error) {
 		key, err := EnsureInterface(d.ReadData())
 		if err != nil {
 			if err == io.EOF {
+				// EOF error means already read the end flag of map
 				break
 			}
 			return nil, err
-
 		}
+
+		// nil map
+		if key == nil {
+			break
+		}
+
 		value, err := EnsureInterface(d.ReadData())
 		if err != nil {
 			return nil, err
@@ -217,47 +244,51 @@ func (d *Decoder) readUntypedMap() (interface{}, error) {
 func (d *Decoder) readMap(dest reflect.Value) error {
 	tag, _ := d.readTag()
 
-	// read ref value if ref
-	if refTag(tag) {
+	switch tag {
+	case _nilTag:
+		return nil
+	case _refStartTag:
+		// read ref value if ref
 		r, err := d.readRef(tag)
 		if err != nil {
 			return err
 		}
 		SetValue(dest, r)
 		return nil
-	}
-
-	if tag == _mapTypedTag {
+	case _mapTypedTag:
 		d.readString(_tagRead)
-	} else if tag == _mapUntypedTag {
+	case _mapUntypedTag:
 		//do nothing
-	} else {
+	default:
 		return newCodecError("readMap", "error map tag: 0x%x", tag)
 	}
 
 	mapTyp := UnpackPtrType(dest.Type())
-	m := reflect.MakeMap(mapTyp)
-	mapValue := PackPtr(m)
-
-	d.addDecoderRef(mapValue)
+	mPtrValue := PackPtr(reflect.MakeMap(mapTyp))
+	d.addDecoderRef(mPtrValue)
 
 	//read key and value
 	for {
 		key, err := d.ReadData()
 		if err != nil {
 			if err == io.EOF {
+				// EOF error means already read the end flag of map
 				break
 			} else {
 				return newCodecError("readMap", err)
 			}
 		}
+
+		if key == nil {
+			break
+		}
+
 		vl, err := d.ReadData()
 		if err != nil {
 			return err
 		}
-		m.SetMapIndex(EnsureRawValue(key), EnsureRawValue(vl))
-		//m.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(vl))
+		mPtrValue.Elem().SetMapIndex(EnsureRawValue(key), EnsureRawValue(vl))
 	}
-	SetValue(dest, mapValue)
+	SetValue(dest, mPtrValue)
 	return nil
 }

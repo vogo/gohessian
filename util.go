@@ -57,6 +57,7 @@ func readTag(reader ByteRuneReader) (byte, error) {
 	if err != nil {
 		return 0, err
 	}
+	// fmt.Printf("### read tag: %x\n", bt[0])
 	return bt[0], nil
 }
 
