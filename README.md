@@ -1,5 +1,7 @@
 # **This is a feature-complete golang hessian serializer.**  
 
+[![Build Status](https://travis-ci.org/vogo/gohessian.png?branch=master)](https://travis-ci.org/vogo/gohessian)
+
 It's cloned from [viant/gohessian](README_old.md) , and do the following works:
 - fix lots of bugs
 - large scope refactoring to let code structure simple and human-friendly
