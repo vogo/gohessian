@@ -1,4 +1,9 @@
 language: go
 
-script: go test -race && go test tests/*.go -race
+go:
+  - "1.10"
+  - "1.11"
+  - "1.12"
+
+script: go mod vendor && go test -race && go test tests/*.go -race
 
