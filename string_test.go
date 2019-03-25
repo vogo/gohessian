@@ -44,6 +44,7 @@ func TestString(t *testing.T) {
 	stringLengthTest(t, _stringChunkSize+_stringMiddleMaxLen-5)
 	stringLengthTest(t, _stringChunkSize+_stringMiddleMaxLen+5)
 }
+
 // Returns an int >= min, < max
 func randomInt(min, max int) int {
 	return min + rand.Intn(max-min)
