@@ -88,7 +88,7 @@ func encodeString(value string) []byte {
 		byteBuf.WriteByte(_stringChunk)
 		byteBuf.Write(StringChunkSizeBytes)
 
-		byteBuf.Write([]byte(string(dataBys[begin:begin+_stringChunkSize])))
+		byteBuf.Write([]byte(string(dataBys[begin : begin+_stringChunkSize])))
 
 		length -= _stringChunkSize
 		begin += _stringChunkSize

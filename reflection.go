@@ -274,9 +274,10 @@ func EnsureInterface(in interface{}, err error) (interface{}, error) {
 	}
 	if v, ok := in.(*_refHolder); ok {
 		in = v.value.Interface()
-	}
-	if v, ok := in.(reflect.Value); ok {
-		in = v.Interface()
+
+		if v, ok := in.(reflect.Value); ok {
+			in = v.Interface()
+		}
 	}
 	return in, nil
 }
