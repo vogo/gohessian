@@ -1,7 +1,6 @@
 
 test:
-	go test
-	go test tests/*.go
+	go test -cover
 
 usage:
 	echo "make test/usage"

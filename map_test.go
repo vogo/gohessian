@@ -13,7 +13,7 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-package tests
+package hessian
 
 import (
 	"encoding/base64"
@@ -22,46 +22,45 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/vogo/gohessian"
 )
 
-//TConfig define
-type TConfig struct {
+//configT define
+type configT struct {
 	Enable bool
 	Msg    string
 	Flag   int
 }
 
 //HessianCodecName java class name
-func (TConfig) HessianCodecName() string {
-	return "test.TConfig"
+func (configT) HessianCodecName() string {
+	return "test.configT"
 }
 
-//TConfigMap define
-type TConfigMap map[string]*TConfig
+//configMapT define
+type configMapT map[string]*configT
 
 //HessianCodecName java class name
-func (TConfigMap) HessianCodecName() string {
+func (configMapT) HessianCodecName() string {
 	return "java.util.concurrent.ConcurrentHashMap"
 }
 
-//decodeTConfigMap from hessian encode bytes
-func decodeTConfigMap(t *testing.T, data []byte, typMap map[string]reflect.Type) (cfg TConfigMap, err error) {
+//decodeConfigMapT from hessian encode bytes
+func decodeConfigMapT(t *testing.T, data []byte, typMap map[string]reflect.Type) (cfg configMapT, err error) {
 	if data == nil || len(data) == 0 {
 		return nil, errors.New("nil byte")
 	}
-	res, err := hessian.ToObject(data, typMap)
+	res, err := ToObject(data, typMap)
 	if err != nil {
 		t.Errorf("failed decode config map bytes: %v, %v\n", base64.StdEncoding.EncodeToString(data), err)
 		return nil, err
 	}
 
 	if sn, ok := res.(map[interface{}]interface{}); ok && len(sn) == 0 {
-		return TConfigMap{}, nil
+		return configMapT{}, nil
 	}
 
 	t.Log("decoded: ", res)
-	if sn, ok := res.(TConfigMap); ok {
+	if sn, ok := res.(configMapT); ok {
 		cfg = sn
 		return
 	}
@@ -70,9 +69,9 @@ func decodeTConfigMap(t *testing.T, data []byte, typMap map[string]reflect.Type)
 	return
 }
 
-//encodeTConfigMap to bytes
-func encodeTConfigMap(t *testing.T, cfg TConfigMap, nameMap map[string]string) ([]byte, error) {
-	return hessian.ToBytes(cfg, nameMap)
+//encodeConfigMapT to bytes
+func encodeConfigMapT(t *testing.T, cfg configMapT, nameMap map[string]string) ([]byte, error) {
+	return ToBytes(cfg, nameMap)
 }
 
 func TestUntypedMap(t *testing.T) {
@@ -83,14 +82,14 @@ func TestUntypedMap(t *testing.T) {
 	m[1] = "test"
 	m[2] = 2
 
-	bytes, err := hessian.ToBytes(m, nil)
+	bytes, err := ToBytes(m, nil)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 	t.Logf("base64: %s", string(bytes))
 
-	result, err := hessian.ToObject(bytes, nil)
+	result, err := ToObject(bytes, nil)
 	if err != nil {
 		t.Error(err)
 		return
@@ -105,24 +104,24 @@ func TestUntypedMap(t *testing.T) {
 }
 
 func TestEncodeDecodeMapType(t *testing.T) {
-	typeMap, nameMap := hessian.ExtractTypeNameMap(TConfigMap{})
+	typeMap, nameMap := ExtractTypeNameMap(configMapT{})
 
 	t.Log(typeMap)
 	t.Log(nameMap)
 
-	tMap := make(TConfigMap)
-	tMap["200101"] = &TConfig{Enable: true, Msg: "test1", Flag: 999}
-	tMap["200102"] = &TConfig{Enable: false, Msg: "test2", Flag: -999}
+	tMap := make(configMapT)
+	tMap["200101"] = &configT{Enable: true, Msg: "test1", Flag: 999}
+	tMap["200102"] = &configT{Enable: false, Msg: "test2", Flag: -999}
 
 	t.Log("config map type:", reflect.TypeOf(tMap))
-	bytes, err := encodeTConfigMap(t, tMap, nameMap)
+	bytes, err := encodeConfigMapT(t, tMap, nameMap)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 	t.Logf("base64: %s\n", string(bytes))
 
-	cfg, err := decodeTConfigMap(t, bytes, typeMap)
+	cfg, err := decodeConfigMapT(t, bytes, typeMap)
 	if err != nil {
 		t.Error(err)
 		return

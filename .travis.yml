@@ -4,5 +4,5 @@ go:
   - "1.11"
   - "1.12"
 
-script: GO111MODULE=on && go mod vendor && go test -race && go test tests/*.go -race
+script: GO111MODULE=on && go mod vendor && go test -race
 

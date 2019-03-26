@@ -1,4 +1,4 @@
-package tests
+package hessian
 
 import (
 	"bufio"
@@ -9,50 +9,49 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/vogo/gohessian"
 )
 
-type TraceVo struct {
+type traceVoT struct {
 	Key   string
 	Value string
 }
 
 //HessianCodecName for struct
-func (TraceVo) HessianCodecName() string {
+func (traceVoT) HessianCodecName() string {
 	return "hessian.TraceVo"
 }
 
-type TraceData struct {
+type traceDataT struct {
 	Seq  int
-	Data TraceVo
+	Data traceVoT
 }
 
 //HessianCodecName for struct
-func (TraceData) HessianCodecName() string {
+func (traceDataT) HessianCodecName() string {
 	return "hessian.TraceData"
 }
 
-// ref java class: github.com/vogo/gohessian/tests/java-tests/src/main/java/hessian/Message.java
-type Message struct {
+// ref java class: github.com/vogo/gohessian/tests/java-tests/src/main/java/hessian/javaMessageT.java
+type javaMessageT struct {
 	Title string
-	Msg   []TraceData
+	Msg   []traceDataT
 }
 
 //HessianCodecName for struct
-func (Message) HessianCodecName() string {
+func (javaMessageT) HessianCodecName() string {
 	return "hessian.Message"
 }
 
-func decodeJavaMessage(t *testing.T, data []byte, typMap map[string]reflect.Type) (msg *Message, err error) {
+func decodeJavaMessage(t *testing.T, data []byte, typMap map[string]reflect.Type) (msg *javaMessageT, err error) {
 	if data == nil || len(data) == 0 {
 		return nil, errors.New("nil byte")
 	}
-	res, err := hessian.ToObject(data, typMap)
+	res, err := ToObject(data, typMap)
 	if err != nil {
 		t.Log("failed decode bytes:", base64.StdEncoding.EncodeToString(data))
 		return nil, err
 	}
-	if sn, ok := res.(*Message); ok {
+	if sn, ok := res.(*javaMessageT); ok {
 		msg = sn
 		return
 	}
@@ -60,25 +59,25 @@ func decodeJavaMessage(t *testing.T, data []byte, typMap map[string]reflect.Type
 	return
 }
 
-func encodeJavaMessage(t *testing.T, msg *Message, nameMap map[string]string) ([]byte, error) {
-	return hessian.ToBytes(*msg, nameMap)
+func encodeJavaMessage(t *testing.T, msg *javaMessageT, nameMap map[string]string) ([]byte, error) {
+	return ToBytes(*msg, nameMap)
 }
 
-func buildJavaMessageObject() *Message {
-	return &Message{
+func buildJavaMessageObject() *javaMessageT {
+	return &javaMessageT{
 		Title: "t1",
-		Msg: []TraceData{
+		Msg: []traceDataT{
 			{
 				Seq:  111,
-				Data: TraceVo{"k1", "v1"},
+				Data: traceVoT{"k1", "v1"},
 			},
 			{
 				Seq:  112,
-				Data: TraceVo{"k2", "v2"},
+				Data: traceVoT{"k2", "v2"},
 			},
 			{
 				Seq:  113,
-				Data: TraceVo{"k3", "v3"},
+				Data: traceVoT{"k3", "v3"},
 			},
 		},
 	}
@@ -86,7 +85,7 @@ func buildJavaMessageObject() *Message {
 
 func TestJavaMessageEncode(t *testing.T) {
 	msg := buildJavaMessageObject()
-	typeMap, nameMap := hessian.ExtractTypeNameMap(msg)
+	typeMap, nameMap := ExtractTypeNameMap(msg)
 	t.Log(typeMap)
 	t.Log(nameMap)
 
@@ -114,7 +113,7 @@ func BenchmarkJavaMessageCodec(b *testing.B) {
 
 	buffer := bytes.NewBuffer(nil)
 	reader := bufio.NewReader(buffer)
-	serializer := hessian.NewSerializer(hessian.ExtractTypeNameMap(c))
+	serializer := NewSerializer(ExtractTypeNameMap(c))
 	err := serializer.WriteTo(buffer, c)
 	_, err = serializer.ReadFrom(reader)
 	assert.Nil(b, err)
@@ -136,8 +135,8 @@ func TestJavaMessageDecode(t *testing.T) {
 	t.Log(string(b64))
 	assert.Nil(t, err)
 
-	javaMessage := Message{}
-	typeMap := hessian.TypeMapFrom(javaMessage)
+	javaMessage := javaMessageT{}
+	typeMap := TypeMapFrom(javaMessage)
 
 	t.Log(string(bytes))
 	msg, err := decodeJavaMessage(t, bytes, typeMap)

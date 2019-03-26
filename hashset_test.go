@@ -13,14 +13,13 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-package tests
+package hessian
 
 import (
 	"encoding/base64"
 	"reflect"
 	"testing"
 
-	hessian "github.com/vogo/gohessian"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -40,13 +39,13 @@ func TestHashSet(t *testing.T) {
 	hashset := []string{}
 	hashsetType = reflect.TypeOf(hashset)
 
-	hashsetHessianTypeMap = hessian.TypeMapOf(hashsetType)
+	hashsetHessianTypeMap = TypeMapOf(hashsetType)
 	hashsetHessianTypeMap[hashsetJavaClassName] = hashsetType
 
 	hashsetHessianNameMap = make(map[string]string)
 	hashsetHessianNameMap[hashsetType.Name()] = hashsetJavaClassName
 
-	obj, err := hessian.ToObject(data, hashsetHessianTypeMap)
+	obj, err := ToObject(data, hashsetHessianTypeMap)
 	if err != nil {
 		t.Error(err)
 	}

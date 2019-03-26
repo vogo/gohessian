@@ -13,7 +13,7 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-package tests
+package hessian
 
 import (
 	"encoding/base64"
@@ -22,77 +22,76 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/vogo/gohessian"
 )
 
-// ServerAPI server api
-type ServerApi struct {
+// serverApiT server api
+type serverApiT struct {
 	ApiName string `json:"apiName"`
 	ApiDesc string `json:"apiDesc"`
 	AppRoot string `json:"appRoot"`
 }
 
-//ServerNode server serverNode
-type ServerNode struct {
-	Name     string      `json:"name"`
-	Version  string      `json:"version"`
-	Desc     string      `json:"desc"`
-	Address  string      `json:"address"`
-	Channels []string    `json:"channels"`
-	ApiList  []ServerApi `json:"apiList"`
+//serverNodeT server serverNode
+type serverNodeT struct {
+	Name     string       `json:"name"`
+	Version  string       `json:"version"`
+	Desc     string       `json:"desc"`
+	Address  string       `json:"address"`
+	Channels []string     `json:"channels"`
+	ApiList  []serverApiT `json:"apiList"`
 }
 
-//HessianCodecName for ServerApi
-func (ServerApi) HessianCodecName() string {
-	return "test.ServerApi"
+//HessianCodecName for serverApiT
+func (serverApiT) HessianCodecName() string {
+	return "test.serverApiT"
 }
 
-//HessianCodecName for ServerNode
-func (ServerNode) HessianCodecName() string {
-	return "test.ServerNode"
+//HessianCodecName for serverNodeT
+func (serverNodeT) HessianCodecName() string {
+	return "test.serverNodeT"
 }
 
-//DecodeServerNode from hessian encode bytes
-func DecodeServerNode(t *testing.T, data []byte, typMap map[string]reflect.Type) (node *ServerNode, err error) {
+//testDecodeServerNode from hessian encode bytes
+func testDecodeServerNode(t *testing.T, data []byte, typMap map[string]reflect.Type) (node *serverNodeT, err error) {
 	if data == nil || len(data) == 0 {
 		return nil, errors.New("nil byte")
 	}
-	res, err := hessian.ToObject(data, typMap)
+	res, err := ToObject(data, typMap)
 	if err != nil {
 		t.Log("failed decode bytes:", base64.StdEncoding.EncodeToString(data))
 		return nil, err
 	}
-	if sn, ok := res.(*ServerNode); ok {
+	if sn, ok := res.(*serverNodeT); ok {
 		node = sn
 		return
 	}
-	err = errors.New("failed to decode ServerNode")
+	err = errors.New("failed to decode serverNodeT")
 	return
 }
 
-//EncodeServerNode to bytes
-func EncodeServerNode(t *testing.T, node *ServerNode, nameMap map[string]string) ([]byte, error) {
-	return hessian.ToBytes(*node, nameMap)
+//testEncodeServerNode to bytes
+func testEncodeServerNode(t *testing.T, node *serverNodeT, nameMap map[string]string) ([]byte, error) {
+	return ToBytes(*node, nameMap)
 }
 
 func TestHessianEncodeDecode(t *testing.T) {
-	typeMap, nameMap := hessian.ExtractTypeNameMap(ServerNode{})
+	typeMap, nameMap := ExtractTypeNameMap(serverNodeT{})
 	t.Log(typeMap)
 	t.Log(nameMap)
 
-	node := &ServerNode{
+	node := &serverNodeT{
 		Version: "v1",
 		Name:    "api",
 		//Desc:     "dd",
 		Address:  "127.0.0.1",
 		Channels: []string{"c1", "c2"},
-		ApiList: []ServerApi{
+		ApiList: []serverApiT{
 			{AppRoot: "/user", ApiName: "user", ApiDesc: "user"},
 			{AppRoot: "/list", ApiName: "list", ApiDesc: "list"},
 		},
 	}
 
-	bt, err := EncodeServerNode(t, node, nameMap)
+	bt, err := testEncodeServerNode(t, node, nameMap)
 	if err != nil {
 		t.Error(err)
 		t.Fail()
@@ -100,7 +99,7 @@ func TestHessianEncodeDecode(t *testing.T) {
 
 	t.Log(base64.StdEncoding.EncodeToString(bt))
 
-	decodeNode, err := DecodeServerNode(t, bt, typeMap)
+	decodeNode, err := testDecodeServerNode(t, bt, typeMap)
 	if err != nil {
 		t.Error(err)
 		t.Fail()
