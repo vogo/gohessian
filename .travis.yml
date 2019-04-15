@@ -4,5 +4,8 @@ go:
   - "1.11"
   - "1.12"
 
-script: GO111MODULE=on && go mod vendor && go test -race && go test -bench . -race
+script:
+  - export BRANCH=$(if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then echo $TRAVIS_BRANCH; else echo $TRAVIS_PULL_REQUEST_BRANCH; fi)
+  - echo "TRAVIS_BRANCH=$TRAVIS_BRANCH, PR=$PR, BRANCH=$BRANCH"
+  - GO111MODULE=on && go mod vendor && go test -race && go test -bench . -race
 
