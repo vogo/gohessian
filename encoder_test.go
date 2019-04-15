@@ -259,3 +259,7 @@ func TestEncoder_WriteString(t *testing.T) {
 		t.Log("succes for ", str)
 	}
 }
+
+func TestFail(t *testing.T){
+	t.FailNow()
+}
