@@ -150,7 +150,7 @@ func decodeLongValue(reader ByteRuneReader, flag int32) (int64, error) {
 	// 1 octet longs
 	if tag >= _long1ByteTagMin && tag <= _long1ByteTagMax {
 		u8 := uint8(tag - _long1ByteZero)
-		i8 := *(*int8)(unsafe.Pointer(&u8))
+		i8 := int8(u8)
 		return int64(i8), nil
 	}
 
