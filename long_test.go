@@ -45,11 +45,11 @@ func TestLong(t *testing.T) {
 	doLongTest(t, 1023, 2)
 
 	doLongTest(t, -262143, 3)
-	doLongTest(t, -262144, 3)
+	doLongTest(t, -0x40000, 3) // -262144 fffc0000
 	doLongTest(t, -262145, 5)
 	doLongTest(t, -162144, 3)
 	doLongTest(t, 262142, 3)
-	doLongTest(t, 262143, 3)
+	doLongTest(t, 0x3ffff, 3) // 262143
 	doLongTest(t, 262144, 5)
 	doLongTest(t, 162143, 3)
 
@@ -77,12 +77,11 @@ func TestLong(t *testing.T) {
 
 func doLongTest(t *testing.T, i64 int64, length int) {
 	t.Log("--------------")
-	// t.Logf("i64: %d , %x", i64, i64)
 
 	u64 := *(*uint64)(unsafe.Pointer(&i64))
 	tb := make([]byte, 8)
 	binary.BigEndian.PutUint64(tb, u64)
-	t.Logf("u64: %d , %x", u64, u64)
+	t.Logf("i64: %d, u64: %d , %x", i64, u64, u64)
 
 	bt := encodeLong(i64)
 	t.Logf(" bt: %x", bt)

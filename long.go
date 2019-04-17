@@ -177,7 +177,7 @@ func decodeLongValue(reader ByteRuneReader, flag int32) (int64, error) {
 
 		b := byte(tag - _long3ByteZero)
 		var fb byte
-		if b&0x08 > 0 {
+		if b&0x80 > 0 {
 			fb = 0xFF
 		} else {
 			fb = 0x00
@@ -196,8 +196,7 @@ func decodeLongValue(reader ByteRuneReader, flag int32) (int64, error) {
 			return 0, err
 		}
 
-		by := []byte{bf[0], bf[1], bf[2], bf[3]}
-		u32 := binary.BigEndian.Uint32(by)
+		u32 := binary.BigEndian.Uint32(bf)
 		i32 := *(*int32)(unsafe.Pointer(&u32))
 
 		return int64(i32), nil
@@ -210,8 +209,7 @@ func decodeLongValue(reader ByteRuneReader, flag int32) (int64, error) {
 			return 0, err
 		}
 
-		by := []byte{bf[0], bf[1], bf[2], bf[3], bf[4], bf[5], bf[6], bf[7]}
-		u64 := binary.BigEndian.Uint64(by)
+		u64 := binary.BigEndian.Uint64(bf)
 		i64 := *(*int64)(unsafe.Pointer(&u64))
 
 		return i64, nil
