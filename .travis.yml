@@ -5,5 +5,6 @@ go:
   - "1.12"
 
 script:
-  - go fmt && [[ -z `git status -s` ]] && GO111MODULE=on && go mod vendor && go test -race && go test -bench . -race
+  - go fmt && [[ -z `git status -s` ]]
+  - GO111MODULE=on && go mod vendor && go test -race && go test -bench . -race
 
