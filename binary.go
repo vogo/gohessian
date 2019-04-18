@@ -54,7 +54,7 @@ var (
 )
 
 func encodeBinary(value []byte) []byte {
-	length := len(value)
+	length:=len(value)
 	if length == 0 {
 		return []byte{_binaryShortLenTagMin}
 	}
